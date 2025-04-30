@@ -168,9 +168,13 @@ fn main() {
         io::stdin()                                        //access the standard input stream
             .read_line(&mut input)      //Read what the user types and store it in input
             .expect("Unable to read Stdin");                //On fail, panic with msg
-        
-        println!("{}", input);
-    
+            
+        let input = input.trim();           //remove whitespace
+
+        match input {
+            "help" => println!("Avaliable Commands:\n1. sdffffffffff"),
+            _ => println!("Unknown command. Type 'help' for assistance.")
+        }
     }
     
 }
