@@ -34,6 +34,7 @@
         unroot <index> - Remove root status from a cell
         gc - Run your garbage collection process
         show - Display the current state of your memory pool
+        populate - Populate remaining cells with data that will be sweeped
         help - List available commands
         exit - End the program
 
@@ -46,6 +47,17 @@
     After running garbage collections:
         -> Show which objects were marked as reclaimed
 */
+
+//TODO:
+//Cells that don't have references, set arbitrary values to them and set them to
+//not free, so it is more clear what the garbage collector is doing
+/*
+If most houses are empty already, this sweep isn't very dramatic or 
+visible. But if you fill many houses with "residents" (data) that 
+aren't connected to your important houses, then the sweep phase becomes 
+much more obvious - you'll see many occupied houses suddenly become available again.
+*/
+
 
 //For collecting arguments from the user
 use std::io::{self};
@@ -285,14 +297,16 @@ fn listen(listening: bool, cells: &mut Vec<Cell>) {
             \n2. --unroot
             \n3. --create_ref <amount_of_times>
             \n4. --state
-            \n5. --gc
-            \n6. --exit"),         //Print a the accepted list of commands
+            \n5. --populate
+            \n6. --gc
+            \n7. --exit"),         //Print a the accepted list of commands
             "--root" => configure_roots(cells, index1, index2),             //Root cells, or default a: 0, b: len-1
             "--unroot" => unroot(cells),                                         //Unroot all
             "--create_ref" => create_references(cells, index1),                  //Run as many times as specified
             "--gc" => println!("Running garabage collector"),
             "--state" => println!("Showing current state of the memory pool"),
             "--exit" => println!("Exiting"),
+            "--populate" => println!("POPLATEINGGGGGGGGGGGGG"),
             _ => println!("Unknown command. Type 'help' for assistance.")       //Default if command doesn't match
         }
     }
