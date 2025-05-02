@@ -23,11 +23,7 @@
 
     Authored by Jarred Jenkins
     https://github.com/jerdbeenbo
-*/
 
-//Have this program running and then run commands from another window through
-//a command-interface post program or something
-/*
     Commands:
         allocate <value> - Create a new cell with a specific value
         reference <from> <to> - Make one cell reference another
@@ -78,16 +74,16 @@ impl Cell {
         }
     }
 
-    // Clone the current Cell
-    fn get_cell(&self) -> Cell {
-        Cell {
-            data: self.data,
-            reference_count: self.reference_count,
-            freed: self.freed,
-            is_root: self.is_root,
-            references_cell: self.references_cell
-        }
-    }
+    // // Clone the current Cell
+    // fn get_cell(&self) -> Cell {
+    //     Cell {
+    //         data: self.data,
+    //         reference_count: self.reference_count,
+    //         freed: self.freed,
+    //         is_root: self.is_root,
+    //         references_cell: self.references_cell
+    //     }
+    // }
 }
 
 //Run once at the start during of the program to create a memory pool ->
@@ -135,7 +131,7 @@ fn alloc(cells: &mut Vec<Cell>, req_data: i32, reference: usize) -> Option<usize
 //frees the data at the pointer index position
 //by deleting the stored information there, and replaces it with a default cell value
 fn free(cells: &mut Vec<Cell>, pointer: usize) {
-    cells[pointer] = Cell::new();
+    cells[pointer] = Cell::new();       //Use new impl for cell to create a default cell (default state for a free cell awaiting assignment)
 
     println!("Cell {} was freed, and is now ready for use again", pointer);
 }
