@@ -2,7 +2,7 @@
 
 ## Overview
 
-GCed-Rust is an educational project demonstrating a barebones mark-and-sweep garbage collector implemented in Rust. This project was created to explore and contrast Rust's ownership and borrowing model with traditional garbage collection memory management approaches.
+GC-Rust is an educational project demonstrating a barebones mark-and-sweep garbage collector implemented in Rust. This project was created to explore and contrast Rust's ownership and borrowing model with traditional garbage collection memory management approaches.
 
 ## Purpose
 
@@ -45,8 +45,8 @@ The implementation includes:
 
 1. Clone the repository:
 ```
-git clone https://github.com/jerdbeenbo/gced-rust.git
-cd gced-rust
+git clone https://github.com/jerdbeenbo/gc-rust.git
+cd gc-rust
 ```
 
 2. Build the project:
