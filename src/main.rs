@@ -11,7 +11,8 @@
 
     This is a functional, albiet very small garbage collector that manages memory through
     the use of a memory pool (Vec of Cell), it tracks what memory is in use, reclaims memory that
-    is not being referenced anymore, and works entirely at runtime.
+    is not being referenced anymore. However, think of this more as an educational demonstration than a standalone
+    working implementation of a mark and sweep garbage collector
 
     However, it is mostly a demonstration that operates within Rust, with controlled memory and
     only with a primitive data type.
@@ -48,20 +49,9 @@
         -> Show which objects were marked as reclaimed
 */
 
-//TODO:
-//Cells that don't have references, set arbitrary values to them and set them to
-//not free, so it is more clear what the garbage collector is doing
-/*
-If most houses are empty already, this sweep isn't very dramatic or 
-visible. But if you fill many houses with "residents" (data) that 
-aren't connected to your important houses, then the sweep phase becomes 
-much more obvious - you'll see many occupied houses suddenly become available again.
-*/
-
-
 //For collecting arguments from the user
 use std::io::{self};
-use rand::prelude::*;
+use rand::{prelude::*, rng};
 
 //A cell of memory that will be stored in a vector -> making up a greater "memory pool"
 #[derive(Clone)]
@@ -146,6 +136,8 @@ fn alloc(cells: &mut Vec<Cell>, req_data: i32, reference: usize) -> Option<usize
 //by deleting the stored information there, and replaces it with a default cell value
 fn free(cells: &mut Vec<Cell>, pointer: usize) {
     cells[pointer] = Cell::new();
+
+    println!("Cell {} was freed, and is now ready for use again", pointer);
 }
 
 //configure 2 cells to root
@@ -185,6 +177,42 @@ fn unroot(cells: &mut Vec<Cell>) {
             println!("cell {} unrooted", i);
         }
     }
+
+    println!();     //Add a space
+}
+
+//populate any anymaining cells with data that is not referencing anything (these will be sweeped)
+fn populate_remaining(cells: &mut Vec<Cell>) {
+    //loop through and populate all free cells
+    let rng: i32 = rng().random_range(0..1000);    //Generate a random arbitrary int value
+
+    for i in 0..cells.len() {
+        if cells[i].freed == true {
+            //Cell is free
+            cells[i].data = Some(rng);      //Assign some arbitrary data (exact val, not important)
+            cells[i].freed = false;         //This cell now has data occupying it
+
+            println!("Cell {} has been populated", i);
+        }
+    }
+
+    println!();
+}
+
+//Function to view the current state of the memory cells
+fn view_state(cells: &Vec<Cell>) {
+
+    //just print each cell
+    for i in 0..cells.len() {
+        print!("\nCell |{}|:
+        \n1. Has data?: {}
+        \n2. Is free?: {}
+        \n3. Is root?: {}
+        \n4. Ref amt: {}
+        \n5. References?: {}"
+    
+    , i, cells[i].data.is_some(), cells[i].freed, cells[i].is_root, cells[i].reference_count, cells[i].references_cell.is_some());
+    }
 }
 
 //Processes messages
@@ -206,6 +234,42 @@ fn show_message(a: Option<usize>, b: Option<String>) {
         println!("{}", msg)         //Print custom message
     }
 
+}
+
+//The marking phase of the garbage collector
+fn mark(cells: &Vec<Cell>) -> Vec<usize>{
+
+    //Loop through all the cells and record their index positions if they are not a root or 
+    //dont reference another cell
+    let mut r: Vec<usize> = Vec::new();
+    for i in 0..cells.len() {
+        if cells[i].reference_count == 0 && cells[i].is_root == false {
+            r.push(i);
+        }
+    }
+
+
+    //return a vector of index positions to sweep (free)
+    r
+}
+
+//The sweeping phase of the garbage collector (free any memory cell that isn't referencing anything or is being referenced)
+fn sweep(cells: &mut Vec<Cell>, sweep_list: Vec<usize>) {
+    //free (sweep) all the cells are position usize
+
+    //run the free function on each cell
+    for sweep in sweep_list {
+        free(cells, sweep);
+    }
+}
+
+//Begin the garbage collection
+fn collect(cells: &mut Vec<Cell>) {
+
+    //'mark' cells to be freed (sweeped)
+    let sweep_list: Vec<usize> = mark(&cells);
+
+    sweep(cells, sweep_list);
 }
 
 //The program will randomly create references between memory cells with
@@ -239,7 +303,7 @@ fn create_references(cells: &mut Vec<Cell>, times_to_run: usize) {
     let root = rng.random_range(0..roots.len());
 
     //TODO: This currently just spams the same value in multiple memory cells, change this up
-    //for now and demonstration purposes, it is fine
+    //for now and for pure demonstration purposes, it is fine and will work, but is predictable and boring
     for i in 0..times_to_run {
         let cell_index = alloc(cells, (data[root] as i32) * (data[root] as i32), roots[root]);
 
@@ -248,7 +312,7 @@ fn create_references(cells: &mut Vec<Cell>, times_to_run: usize) {
             println!("Success! Cell with value {} was created at pos {} referencing root {}", (data[root] as i32) * (data[root] as i32), cell_index.unwrap(), roots[root]);
         }
     }
-
+    println!(); //Add a line
 }
 
 fn parse_param_to_usize(param: Option<&&str>, default: usize) -> usize {
@@ -302,11 +366,11 @@ fn listen(listening: bool, cells: &mut Vec<Cell>) {
             \n7. --exit"),         //Print a the accepted list of commands
             "--root" => configure_roots(cells, index1, index2),             //Root cells, or default a: 0, b: len-1
             "--unroot" => unroot(cells),                                         //Unroot all
-            "--create_ref" => create_references(cells, index1),                  //Run as many times as specified
-            "--gc" => println!("Running garabage collector"),
-            "--state" => println!("Showing current state of the memory pool"),
+            "--create_ref" => create_references(cells, index1),     //Run as many times as specified
+            "--gc" => collect(cells),                                           //Run the garbage collector (mark and sweep)
+            "--state" => view_state(cells),
             "--exit" => println!("Exiting"),
-            "--populate" => println!("POPLATEINGGGGGGGGGGGGG"),
+            "--populate" => populate_remaining(cells),
             _ => println!("Unknown command. Type 'help' for assistance.")       //Default if command doesn't match
         }
     }
