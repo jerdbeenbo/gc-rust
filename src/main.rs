@@ -168,7 +168,7 @@ fn unroot(cells: &mut Vec<Cell>) {
     //loop over cells and unroot all
     for i in 0..cells.len() {
         if cells[i].is_root == true {
-            cells[i].is_root == false;
+            cells[i].is_root = false;
 
             println!("cell {} unrooted", i);
         }
@@ -180,12 +180,13 @@ fn unroot(cells: &mut Vec<Cell>) {
 //populate any anymaining cells with data that is not referencing anything (these will be sweeped)
 fn populate_remaining(cells: &mut Vec<Cell>) {
     //loop through and populate all free cells
-    let rng: i32 = rng().random_range(0..1000);    //Generate a random arbitrary int value
+    let mut rng = rand::rng();
+    let random_val: i32 = rng.random_range(0..1000);    //Generate a random arbitrary int value
 
     for i in 0..cells.len() {
         if cells[i].freed == true {
             //Cell is free
-            cells[i].data = Some(rng);      //Assign some arbitrary data (exact val, not important)
+            cells[i].data = Some(random_val);      //Assign some arbitrary data (exact val, not important)
             cells[i].freed = false;         //This cell now has data occupying it
 
             println!("Cell {} has been populated", i);
@@ -233,7 +234,18 @@ fn show_message(a: Option<usize>, b: Option<String>) {
 }
 
 //The marking phase of the garbage collector
+//Normally, you would do a recursive search starting from the roots, but for demonstration purposes this works enough for the assignment
 fn mark(cells: &Vec<Cell>) -> Vec<usize>{
+
+    // //get root index position
+    // let mut indexs: Vec<usize> = Vec::new();
+    // for i in 0..cells.len() {
+    //     if cells[i].is_root {
+    //         indexs.push(i);
+    //     }
+    // }
+
+    // //
 
     //Loop through all the cells and record their index positions if they are not a root or 
     //dont reference another cell
