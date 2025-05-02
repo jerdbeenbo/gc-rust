@@ -1,4 +1,4 @@
-# GCed-Rust: A Mark and Sweep Garbage Collector Demo in Rust
+# GC-Rust: A Mark and Sweep Garbage Collector Demo in Rust
 
 ## Overview
 
