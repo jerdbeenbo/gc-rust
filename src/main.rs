@@ -361,6 +361,12 @@ fn parse_param_to_usize(param: Option<&&str>, default: usize) -> usize {
     }
 }
 
+//Function for handling allocation from prompt
+//TODO:
+fn handle_prompt_allocation(cells: &Vec<Cell>) {
+    //
+}
+
 //Main input loop of the program, listen for commands from the user
 fn listen(listening: bool, cells: &mut Vec<Cell>) {
     while listening {
@@ -399,6 +405,7 @@ fn listen(listening: bool, cells: &mut Vec<Cell>) {
             "--state" => view_state(cells),
             "--exit" => println!("Exiting"),
             "--populate" => populate_remaining(cells),
+            "--alloc_at" => handle_prompt_allocation(cells),
             _ => println!("Unknown command. Type 'help' for assistance.")       //Default if command doesn't match
         }
     }
