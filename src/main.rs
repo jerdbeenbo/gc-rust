@@ -47,7 +47,7 @@
 
 //For collecting arguments from the user
 use std::io::{self};
-use rand::{prelude::*, rng};
+use rand::prelude::*;
 
 //A cell of memory that will be stored in a vector -> making up a greater "memory pool"
 #[derive(Clone)]
@@ -103,11 +103,10 @@ fn init_pool(size: usize) -> Vec<Cell> {
 //to be stored here. (At this stage, only supports storing i32 primitive values)
 //Return an index that points to the location in memory that the data is stored
 //Takes a mutable reference to the memory pool so it can update and iterate on it.
-fn alloc(cells: &mut Vec<Cell>, req_data: i32, reference: usize) -> Option<usize>{
+fn free_alloc(cells: &mut Vec<Cell>, req_data: i32, reference: usize) -> Option<usize>{
 
     println!("Receiving data value {}", req_data);
     println!("Receiving reference root {}", reference);
-
 
     //Find first avaliable cell to be used
     for i in 0..cells.len() {
@@ -126,6 +125,27 @@ fn alloc(cells: &mut Vec<Cell>, req_data: i32, reference: usize) -> Option<usize
         }
     }
     None    //-> Return None as there is no memory freely avaliable for storing any data at the moment
+}
+
+//Allocates at a specific memory position
+fn spec_alloc(cells: &mut Vec<Cell>, req_data: i32, reference: usize, store_pos: usize) -> Option<usize> {
+    
+    //check if memory is allocated
+    if cells[store_pos].freed == true {
+        //the memory is free for use
+        //store the data
+        cells[store_pos] = Cell {
+            data: Some(req_data),
+            reference_count: 1,
+            freed: false,
+            is_root: false,
+            references_cell: Some(reference)
+        };
+
+        return Some(store_pos);
+    }
+
+    None   //Return none as the memory position is not free, handle this by freeing pos at call
 }
 
 //frees the data at the pointer index position
@@ -313,7 +333,7 @@ fn create_references(cells: &mut Vec<Cell>, times_to_run: usize) {
     //TODO: This currently just spams the same value in multiple memory cells, change this up
     //for now and for pure demonstration purposes, it is fine and will work, but is predictable and boring
     for i in 0..times_to_run {
-        let cell_index = alloc(cells, (data[root] as i32) * (data[root] as i32), roots[root]);
+        let cell_index = free_alloc(cells, (data[root] as i32) * (data[root] as i32), roots[root]);
 
         //print if it was a success or not
         if cell_index.is_some() {
