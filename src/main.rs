@@ -46,23 +46,22 @@
 */
 
 //For collecting arguments from the user
-use std::io::{self};
 use rand::prelude::*;
+use std::io::{self};
 
 //A cell of memory that will be stored in a vector -> making up a greater "memory pool"
 #[derive(Clone)]
 struct Cell {
-    data: Option<i32>,              //Actual data within the memory pool...
-                                    //  ...stored as an option as the default data value should be None
-    reference_count: i32,           //Is this object still being referenced? (amount of references)
-    freed: bool,                    //False || in use (referenced), True || not in use (de-referenced)
-    is_root: bool,                  //Declares whether or not this is a root (static) entrance variable
-    references_cell: Option<usize>  //The index of a cell this cell references
+    data: Option<i32>, //Actual data within the memory pool...
+    //  ...stored as an option as the default data value should be None
+    reference_count: i32, //Is this object still being referenced? (amount of references)
+    freed: bool,          //False || in use (referenced), True || not in use (de-referenced)
+    is_root: bool,        //Declares whether or not this is a root (static) entrance variable
+    references_cell: Option<usize>, //The index of a cell this cell references
 }
 
 //Implementation for a Cell
 impl Cell {
-
     //Creates a new cell with default values
     fn new() -> Cell {
         Cell {
@@ -70,7 +69,7 @@ impl Cell {
             reference_count: 0,
             freed: true,
             is_root: false,
-            references_cell: None
+            references_cell: None,
         }
     }
 
@@ -87,56 +86,69 @@ impl Cell {
 }
 
 macro_rules! malloc {
-    ($data:expr) => {
-        //Single parameter, call free_alloc
-        free_alloc(&mut cells, $data, 0)
+    // Pattern 0 Just data - find first available cell with no reference
+    ($cells:expr, $data:expr) => {
+        free_alloc($cells, $data, 0)  // Using 0 as default reference
+    };
+
+    //Pattern 1 (Automatic, first free-allocation)
+    ($cells:expr, $data:expr, $reference:expr) => {
+        //Three parameters, call free_alloc
+        free_alloc($cells, $data, $reference)
+    };
+
+    //Pattern 2 (specific-allocation)
+    ($cells:expr, $data:expr, $reference:expr, $pos:expr) => {
+        //Four parameters, call spec_alloc
+        spec_alloc($cells, $data, Some($reference), $pos)
     };
 }
 
 //Run once at the start during of the program to create a memory pool ->
 //which is essentially just a Vec of Cell, with size n specified when the function is called.
 fn init_pool(size: usize) -> Vec<Cell> {
-
     //Create instance of a default cell
     let default_cell = Cell::new();
 
     //Set up memory pool with just default implementations of cells
     let cells: Vec<Cell> = vec![default_cell; size];
 
-    cells   //Return cells
+    cells //Return cells
 }
 
 //Searches through the cells vec and finds a cell that is not in use, and assigns it the memory that is requested
 //to be stored here. (At this stage, only supports storing i32 primitive values)
 //Return an index that points to the location in memory that the data is stored
 //Takes a mutable reference to the memory pool so it can update and iterate on it.
-fn free_alloc(cells: &mut Vec<Cell>, req_data: i32, reference: usize) -> Option<usize>{
-
+fn free_alloc(cells: &mut Vec<Cell>, req_data: i32, reference: usize) -> Option<usize> {
     println!("Receiving data value {}", req_data);
     println!("Receiving reference root {}", reference);
 
     //Find first avaliable cell to be used
     for i in 0..cells.len() {
         if cells[i].freed == true {
-
             //Store the data at the index position i
             cells[i] = Cell {
                 data: Some(req_data),
                 reference_count: 1,
                 freed: false,
                 is_root: false,
-                references_cell: Some(reference)
+                references_cell: Some(reference),
             };
 
-            return Some(i);     //Return the index
+            return Some(i); //Return the index
         }
     }
-    None    //-> Return None as there is no memory freely avaliable for storing any data at the moment
+    None //-> Return None as there is no memory freely avaliable for storing any data at the moment
 }
 
 //Allocates at a specific memory position
-fn spec_alloc(cells: &mut Vec<Cell>, req_data: i32, reference: Option<usize>, store_pos: usize) -> Option<usize> {
-    
+fn spec_alloc(
+    cells: &mut Vec<Cell>,
+    req_data: i32,
+    reference: Option<usize>,
+    store_pos: usize,
+) -> Option<usize> {
     //check if memory is allocated
     if cells[store_pos].freed == true {
         //the memory is free for use
@@ -146,26 +158,25 @@ fn spec_alloc(cells: &mut Vec<Cell>, req_data: i32, reference: Option<usize>, st
             reference_count: 1,
             freed: false,
             is_root: false,
-            references_cell: reference
+            references_cell: reference,
         };
 
         return Some(store_pos);
     }
 
-    None   //Return none as the memory position is not free, handle this by freeing pos at call
+    None //Return none as the memory position is not free, handle this by freeing pos at call
 }
 
 //frees the data at the pointer index position
 //by deleting the stored information there, and replaces it with a default cell value
 fn free(cells: &mut Vec<Cell>, pointer: usize) {
-    cells[pointer] = Cell::new();       //Use new impl for cell to create a default cell (default state for a free cell awaiting assignment)
+    cells[pointer] = Cell::new(); //Use new impl for cell to create a default cell (default state for a free cell awaiting assignment)
 
     println!("Cell {} was freed, and is now ready for use again", pointer);
 }
 
 //configure 2 cells to root
 fn configure_roots(cells: &mut Vec<Cell>, a: usize, b: usize) {
-
     //error handle
     if a > 19 || b > 19 {
         //set values to default
@@ -177,8 +188,7 @@ fn configure_roots(cells: &mut Vec<Cell>, a: usize, b: usize) {
         cells[1].freed = false;
 
         println!("cells {} and {} are now the roots", 0, 19);
-    }
-    else {
+    } else {
         //Assign the cells as roots that were chosen by the user
         //Unfree them as they'll have values (soon)
         cells[a].is_root = true;
@@ -201,20 +211,20 @@ fn unroot(cells: &mut Vec<Cell>) {
         }
     }
 
-    println!();     //Add a space
+    println!(); //Add a space
 }
 
 //populate any anymaining cells with data that is not referencing anything (these will be sweeped)
 fn populate_remaining(cells: &mut Vec<Cell>) {
     //loop through and populate all free cells
     let mut rng = rand::rng();
-    let random_val: i32 = rng.random_range(0..1000);    //Generate a random arbitrary int value
+    let random_val: i32 = rng.random_range(0..1000); //Generate a random arbitrary int value
 
     for i in 0..cells.len() {
         if cells[i].freed == true {
             //Cell is free
-            cells[i].data = Some(random_val);      //Assign some arbitrary data (exact val, not important)
-            cells[i].freed = false;         //This cell now has data occupying it
+            cells[i].data = Some(random_val); //Assign some arbitrary data (exact val, not important)
+            cells[i].freed = false; //This cell now has data occupying it
 
             println!("Cell {} has been populated", i);
         }
@@ -225,17 +235,22 @@ fn populate_remaining(cells: &mut Vec<Cell>) {
 
 //Function to view the current state of the memory cells
 fn view_state(cells: &Vec<Cell>) {
-
     //just print each cell
     for i in 0..cells.len() {
-        print!("\nCell |{}|:
+        print!(
+            "\nCell |{}|:
         \n1. Has data?: {}
         \n2. Is free?: {}
         \n3. Is root?: {}
         \n4. Ref amt: {}
-        \n5. References?: {}"
-    
-    , i, cells[i].data.is_some(), cells[i].freed, cells[i].is_root, cells[i].reference_count, cells[i].references_cell.is_some());
+        \n5. References?: {}",
+            i,
+            cells[i].data.is_some(),
+            cells[i].freed,
+            cells[i].is_root,
+            cells[i].reference_count,
+            cells[i].references_cell.is_some()
+        );
     }
 }
 
@@ -243,27 +258,24 @@ fn view_state(cells: &Vec<Cell>) {
 //<a> pass in a usise value to print predetermined, lengthly messages (such as a welcome)
 //<b> pass in smaller, custom messages from outside of this function
 fn show_message(a: Option<usize>, b: Option<String>) {
-    
     let welcome: &str = "GCed-Rust Demonstration
     \n1. Run --help to see a list of commands.";
 
-    if a.is_some() {    //Boolean operator to see if a carries a value
+    if a.is_some() {
+        //Boolean operator to see if a carries a value
         match a {
             Some(1) => println!("{}", welcome),
-            _ => println!("invalid: use --help to configure commands")  //For none or default
+            _ => println!("invalid: use --help to configure commands"), //For none or default
         }
+    } else {
+        let msg = b.unwrap(); //Unwrap msg
+        println!("{}", msg) //Print custom message
     }
-    else {
-        let msg = b.unwrap();       //Unwrap msg
-        println!("{}", msg)         //Print custom message
-    }
-
 }
 
 //The marking phase of the garbage collector
 //Normally, you would do a recursive search starting from the roots, but for demonstration purposes this works enough for the assignment
-fn mark(cells: &Vec<Cell>) -> Vec<usize>{
-
+fn mark(cells: &Vec<Cell>) -> Vec<usize> {
     // //get root index position
     // let mut indexs: Vec<usize> = Vec::new();
     // for i in 0..cells.len() {
@@ -274,7 +286,7 @@ fn mark(cells: &Vec<Cell>) -> Vec<usize>{
 
     // //
 
-    //Loop through all the cells and record their index positions if they are not a root or 
+    //Loop through all the cells and record their index positions if they are not a root or
     //dont reference another cell
     let mut r: Vec<usize> = Vec::new();
     for i in 0..cells.len() {
@@ -282,7 +294,6 @@ fn mark(cells: &Vec<Cell>) -> Vec<usize>{
             r.push(i);
         }
     }
-
 
     //return a vector of index positions to sweep (free)
     r
@@ -300,7 +311,6 @@ fn sweep(cells: &mut Vec<Cell>, sweep_list: Vec<usize>) {
 
 //Begin the garbage collection
 fn collect(cells: &mut Vec<Cell>) {
-
     //'mark' cells to be freed (sweeped)
     let sweep_list: Vec<usize> = mark(&cells);
 
@@ -321,7 +331,6 @@ fn create_references(cells: &mut Vec<Cell>, times_to_run: usize) {
     //set data of root memory cells
     for i in 0..cells.len() {
         if cells[i].is_root {
-            
             //Create and store data
             let _data = rng.random_range(1..50);
             data.push(_data);
@@ -340,11 +349,20 @@ fn create_references(cells: &mut Vec<Cell>, times_to_run: usize) {
     //TODO: This currently just spams the same value in multiple memory cells, change this up
     //for now and for pure demonstration purposes, it is fine and will work, but is predictable and boring
     for i in 0..times_to_run {
-        let cell_index = free_alloc(cells, (data[root] as i32) * (data[root] as i32), roots[root]);
+        let cell_index = malloc!(
+            cells,
+            (data[root] as i32) * (data[root] as i32),
+            roots[root]
+        );
 
         //print if it was a success or not
         if cell_index.is_some() {
-            println!("Success! Cell with value {} was created at pos {} referencing root {}", (data[root] as i32) * (data[root] as i32), cell_index.unwrap(), roots[root]);
+            println!(
+                "Success! Cell with value {} was created at pos {} referencing root {}",
+                (data[root] as i32) * (data[root] as i32),
+                cell_index.unwrap(),
+                roots[root]
+            );
         }
     }
     println!(); //Add a line
@@ -355,15 +373,18 @@ fn parse_param_to_usize(param: Option<&&str>, default: usize) -> usize {
         Some(value) => {
             // Try to parse the string to a number
             match value.trim().parse::<usize>() {
-                Ok(number) => number,  // Successfully parsed
+                Ok(number) => number, // Successfully parsed
                 Err(_) => {
-                    println!("Warning: Could not parse '{}' as a number. Using default: {}", value, default);
-                    default  // Use default if parsing fails
+                    println!(
+                        "Warning: Could not parse '{}' as a number. Using default: {}",
+                        value, default
+                    );
+                    default // Use default if parsing fails
                 }
             }
-        },
+        }
         None => {
-            default  // Use default if no parameter provided
+            default // Use default if no parameter provided
         }
     }
 }
@@ -371,61 +392,59 @@ fn parse_param_to_usize(param: Option<&&str>, default: usize) -> usize {
 //Function for handling allocation from prompt
 //TODO: some tasks to expand here
 fn handle_prompt_allocation(cells: &mut Vec<Cell>, index: usize) {
-
     let mut rng: ThreadRng = rand::rng();
-    let data: i32 = rng.random_range(0..50);     //Generate some arbitrary data TODO: actually handle data
+    let data: i32 = rng.random_range(0..50); //Generate some arbitrary data TODO: actually handle data
 
-    spec_alloc(cells, data, None, index);       //Handle no references TODO: Meanful connection of references
-
+    spec_alloc(cells, data, None, index); //Handle no references TODO: Meanful connection of references
 }
 
 //Main input loop of the program, listen for commands from the user
 fn listen(listening: bool, cells: &mut Vec<Cell>) {
     while listening {
         //while accepting commands
-        let mut input: String = String::new();                   //Create a new string variable each iteration to store the users input
-        io::stdin()                                        //access the standard input stream
-            .read_line(&mut input)      //Read what the user types and store it in input
-            .expect("Unable to read Stdin");                //On fail, panic with msg
-            
-        let input: Vec<&str> = input.split(' ').collect();           //remove whitespace
-        //Get the first command
+        let mut input: String = String::new(); //Create a new string variable each iteration to store the users input
+        io::stdin() //access the standard input stream
+            .read_line(&mut input) //Read what the user types and store it in input
+            .expect("Unable to read Stdin"); //On fail, panic with msg
+
+        let input: Vec<&str> = input.split(' ').collect(); //remove whitespace
+                                                           //Get the first command
         let command: &str = input[0];
         //Commands can take up to 2 inputs
-        let fparam: Option<&&str> = input.get(1);    //&& reference to a reference
-        let sparam: Option<&&str> = input.get(2);    //&& reference to a reference
+        let fparam: Option<&&str> = input.get(1); //&& reference to a reference
+        let sparam: Option<&&str> = input.get(2); //&& reference to a reference
 
         //these parameters will always be cell index position, so make adjustments
-        let index1 = parse_param_to_usize(fparam, 0);  // Default to 0 if parameter missing or invalid
-        let index2 = parse_param_to_usize(sparam, cells.len() - 1);  // Default to last cell if missing
+        let index1 = parse_param_to_usize(fparam, 0); // Default to 0 if parameter missing or invalid
+        let index2 = parse_param_to_usize(sparam, cells.len() - 1); // Default to last cell if missing
 
         //Seperate values
 
         match command.trim() {
-            "--help" => println!("\nAvaliable Commands:
+            "--help" => println!(
+                "\nAvaliable Commands:
             \n1. --root <cell_index_pos>(0-19) <cell_index_pos>(0-19)
             \n2. --unroot
             \n3. --create_ref <amount_of_times>
             \n4. --state
             \n5. --populate
             \n6. --gc
-            \n7. --exit"),         //Print a the accepted list of commands
-            "--root" => configure_roots(cells, index1, index2),             //Root cells, or default a: 0, b: len-1
-            "--unroot" => unroot(cells),                                         //Unroot all
-            "--create_ref" => create_references(cells, index1),     //Run as many times as specified
-            "--gc" => collect(cells),                                           //Run the garbage collector (mark and sweep)
+            \n7. --exit"
+            ), //Print a the accepted list of commands
+            "--root" => configure_roots(cells, index1, index2), //Root cells, or default a: 0, b: len-1
+            "--unroot" => unroot(cells),                        //Unroot all
+            "--create_ref" => create_references(cells, index1), //Run as many times as specified
+            "--gc" => collect(cells), //Run the garbage collector (mark and sweep)
             "--state" => view_state(cells),
             "--exit" => println!("Exiting"),
             "--populate" => populate_remaining(cells),
             "--alloc_at" => handle_prompt_allocation(cells, index1),
-            _ => println!("Unknown command. Type 'help' for assistance.")       //Default if command doesn't match
+            _ => println!("Unknown command. Type 'help' for assistance."), //Default if command doesn't match
         }
     }
 }
 
-
 fn main() {
-
     //1. Create a memory pool
     /*
         A memory pool, AKA memory allocator or memory management pool, is a
@@ -442,13 +461,12 @@ fn main() {
     //This would be comparible to the heap
     let mut cells: Vec<Cell> = init_pool(20);
 
-    let msg: usize = 1;                         //Welcome message
-    show_message(Some(msg), None);         //Run the initial message
+    let msg: usize = 1; //Welcome message
+    show_message(Some(msg), None); //Run the initial message
 
     //Listen for user input, and act based on commands
     //Stop listening when the user signals to run the mark-and-sweep collection
     let mut listening: bool = true;
     //main loop of the program | listen for commands from the user
     listen(listening, &mut cells);
-    
 }
