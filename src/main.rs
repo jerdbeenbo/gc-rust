@@ -49,6 +49,7 @@
 use rand::prelude::*;
 use std::io::{self};
 
+//Structures
 //A cell of memory that will be stored in a vector -> making up a greater "memory pool"
 #[derive(Clone)]
 struct Cell {
@@ -85,6 +86,15 @@ impl Cell {
     // }
 }
 
+//Types
+#[derive(Debug)]
+enum OccupiedError {
+    space_occupied,
+}
+
+type IndexResult = Result<usize, OccupiedError>;
+
+//Macros
 macro_rules! malloc {
     // Pattern 0 Just data - find first available cell with no reference
     ($cells:expr, $data:expr) => {
@@ -98,9 +108,9 @@ macro_rules! malloc {
     };
 
     //Pattern 2 (specific-allocation)
-    ($cells:expr, $data:expr, $reference:expr, $pos:expr) => {
+    ($cells:expr, $data:expr, $reference:ident, $pos:expr) => {
         //Four parameters, call spec_alloc
-        spec_alloc($cells, $data, Some($reference), $pos)
+        spec_alloc($cells, $data, $reference, $pos)
     };
 }
 
@@ -120,7 +130,7 @@ fn init_pool(size: usize) -> Vec<Cell> {
 //to be stored here. (At this stage, only supports storing i32 primitive values)
 //Return an index that points to the location in memory that the data is stored
 //Takes a mutable reference to the memory pool so it can update and iterate on it.
-fn free_alloc(cells: &mut Vec<Cell>, req_data: i32, reference: usize) -> Option<usize> {
+fn free_alloc(cells: &mut Vec<Cell>, req_data: i32, reference: usize) -> IndexResult {
     println!("Receiving data value {}", req_data);
     println!("Receiving reference root {}", reference);
 
@@ -136,10 +146,10 @@ fn free_alloc(cells: &mut Vec<Cell>, req_data: i32, reference: usize) -> Option<
                 references_cell: Some(reference),
             };
 
-            return Some(i); //Return the index
+            return Ok(i); //If successful, return I
         }
     }
-    None //-> Return None as there is no memory freely avaliable for storing any data at the moment
+    Err(OccupiedError::space_occupied) //-> Return space_occupied as there is no memory freely avaliable for storing any data at the moment
 }
 
 //Allocates at a specific memory position
@@ -148,7 +158,7 @@ fn spec_alloc(
     req_data: i32,
     reference: Option<usize>,
     store_pos: usize,
-) -> Option<usize> {
+) -> IndexResult {
     //check if memory is allocated
     if cells[store_pos].freed == true {
         //the memory is free for use
@@ -161,10 +171,10 @@ fn spec_alloc(
             references_cell: reference,
         };
 
-        return Some(store_pos);
+        return Ok(store_pos);
     }
 
-    None //Return none as the memory position is not free, handle this by freeing pos at call
+    Err(OccupiedError::space_occupied) //Return none as the memory position is not free, handle this by freeing pos at call
 }
 
 //frees the data at the pointer index position
@@ -353,7 +363,7 @@ fn create_references(cells: &mut Vec<Cell>, times_to_run: usize) {
             cells,
             (data[root] as i32) * (data[root] as i32),
             roots[root]
-        );
+        )?;
 
         //print if it was a success or not
         if cell_index.is_some() {
@@ -391,11 +401,11 @@ fn parse_param_to_usize(param: Option<&&str>, default: usize) -> usize {
 
 //Function for handling allocation from prompt
 //TODO: some tasks to expand here
-fn handle_prompt_allocation(cells: &mut Vec<Cell>, index: usize) {
+fn handle_prompt_allocation(cells: &mut Vec<Cell>, index: usize) -> IndexResult {
     let mut rng: ThreadRng = rand::rng();
     let data: i32 = rng.random_range(0..50); //Generate some arbitrary data TODO: actually handle data
 
-    spec_alloc(cells, data, None, index); //Handle no references TODO: Meanful connection of references
+    malloc!(cells, data, None, index)?; //Handle no references TODO: Meanful connection of references
 }
 
 //Main input loop of the program, listen for commands from the user
