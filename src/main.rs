@@ -86,6 +86,13 @@ impl Cell {
     // }
 }
 
+macro_rules! malloc {
+    ($data:expr) => {
+        //Single parameter, call free_alloc
+        free_alloc(&mut cells, $data, 0)
+    };
+}
+
 //Run once at the start during of the program to create a memory pool ->
 //which is essentially just a Vec of Cell, with size n specified when the function is called.
 fn init_pool(size: usize) -> Vec<Cell> {
@@ -128,7 +135,7 @@ fn free_alloc(cells: &mut Vec<Cell>, req_data: i32, reference: usize) -> Option<
 }
 
 //Allocates at a specific memory position
-fn spec_alloc(cells: &mut Vec<Cell>, req_data: i32, reference: usize, store_pos: usize) -> Option<usize> {
+fn spec_alloc(cells: &mut Vec<Cell>, req_data: i32, reference: Option<usize>, store_pos: usize) -> Option<usize> {
     
     //check if memory is allocated
     if cells[store_pos].freed == true {
@@ -139,7 +146,7 @@ fn spec_alloc(cells: &mut Vec<Cell>, req_data: i32, reference: usize, store_pos:
             reference_count: 1,
             freed: false,
             is_root: false,
-            references_cell: Some(reference)
+            references_cell: reference
         };
 
         return Some(store_pos);
@@ -362,9 +369,14 @@ fn parse_param_to_usize(param: Option<&&str>, default: usize) -> usize {
 }
 
 //Function for handling allocation from prompt
-//TODO:
-fn handle_prompt_allocation(cells: &Vec<Cell>) {
-    //
+//TODO: some tasks to expand here
+fn handle_prompt_allocation(cells: &mut Vec<Cell>, index: usize) {
+
+    let mut rng: ThreadRng = rand::rng();
+    let data: i32 = rng.random_range(0..50);     //Generate some arbitrary data TODO: actually handle data
+
+    spec_alloc(cells, data, None, index);       //Handle no references TODO: Meanful connection of references
+
 }
 
 //Main input loop of the program, listen for commands from the user
@@ -405,7 +417,7 @@ fn listen(listening: bool, cells: &mut Vec<Cell>) {
             "--state" => view_state(cells),
             "--exit" => println!("Exiting"),
             "--populate" => populate_remaining(cells),
-            "--alloc_at" => handle_prompt_allocation(cells),
+            "--alloc_at" => handle_prompt_allocation(cells, index1),
             _ => println!("Unknown command. Type 'help' for assistance.")       //Default if command doesn't match
         }
     }
