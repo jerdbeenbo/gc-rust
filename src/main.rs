@@ -1,7 +1,6 @@
 /*
     This is a barebones garbage collector (mark and sweep) for Rust, demonstrating the
     advantages of Rust's ownership and borrowing features compared against a garbage collector implementation.
-    My findings from this experiement are explored in a report, accompanied within the repo.
 
     What does a garbage collector do?
         - Manages memory for us semi-automatically (using explicit rules)
@@ -23,26 +22,6 @@
 
     Authored by Jarred Jenkins
     https://github.com/jerdbeenbo
-
-    Commands:
-        allocate <value> - Create a new cell with a specific value
-        reference <from> <to> - Make one cell reference another
-        root <index> - Mark a specific cell as a root
-        unroot <index> - Remove root status from a cell
-        gc - Run your garbage collection process
-        show - Display the current state of your memory pool
-        populate - Populate remaining cells with data that will be sweeped
-        help - List available commands
-        exit - End the program
-
-    After each action, show memory state:
-        -> Which cells contain objects
-        -> What references exist between objects
-        -> Which objects are roots (directly reachable from variables)
-        -> Which objects are currently reachable
-
-    After running garbage collections:
-        -> Show which objects were marked as reclaimed
 */
 
 //TODO: Need to update references to support a DFS Mark traversal system
