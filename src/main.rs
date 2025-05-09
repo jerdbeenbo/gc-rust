@@ -45,8 +45,10 @@
         -> Show which objects were marked as reclaimed
 */
 
+//TODO: All functions within match arm need to return Ok()
+
 //For collecting arguments from the user
-use rand::prelude::*;
+use rand::{prelude::*, seq::index};
 use std::io::{self};
 
 //Structures
@@ -66,11 +68,11 @@ impl Cell {
     //Creates a new cell with default values
     fn new() -> Cell {
         Cell {
-            data: None,
-            reference_count: 0,
-            freed: true,
-            is_root: false,
-            references_cell: None,
+            data: None,             //Cell starts with no data
+            reference_count: 0,     //Cell starts with no references
+            freed: true,            //Cell starts as free, avaliable for use
+            is_root: false,         //By default, cell is not a root
+            references_cell: None,  //References None cell
         }
     }
 
@@ -86,13 +88,14 @@ impl Cell {
     // }
 }
 
-//Types
+//Enum to define error behaviour
 #[derive(Debug)]
-enum OccupiedError {
-    space_occupied,
+enum AllocError {
+    occupied,
 }
 
-type IndexResult = Result<usize, OccupiedError>;
+//Result type to define errors
+type IndexResult = Result<usize, AllocError>;
 
 //Macros
 macro_rules! malloc {
@@ -146,19 +149,14 @@ fn free_alloc(cells: &mut Vec<Cell>, req_data: i32, reference: usize) -> IndexRe
                 references_cell: Some(reference),
             };
 
-            return Ok(i); //If successful, return I
+            return Ok(i); //If successful, return index I as position stored
         }
     }
-    Err(OccupiedError::space_occupied) //-> Return space_occupied as there is no memory freely avaliable for storing any data at the moment
+    Err(AllocError::occupied) //-> Return space_occupied as there is no memory freely avaliable for storing any data at the moment
 }
 
 //Allocates at a specific memory position
-fn spec_alloc(
-    cells: &mut Vec<Cell>,
-    req_data: i32,
-    reference: Option<usize>,
-    store_pos: usize,
-) -> IndexResult {
+fn spec_alloc(cells: &mut Vec<Cell>, req_data: i32, reference: Option<usize>, store_pos: usize) -> IndexResult {
     //check if memory is allocated
     if cells[store_pos].freed == true {
         //the memory is free for use
@@ -174,7 +172,7 @@ fn spec_alloc(
         return Ok(store_pos);
     }
 
-    Err(OccupiedError::space_occupied) //Return none as the memory position is not free, handle this by freeing pos at call
+    Err(AllocError::occupied) //Return none as the memory position is not free, handle this by freeing pos at call
 }
 
 //frees the data at the pointer index position
@@ -359,20 +357,14 @@ fn create_references(cells: &mut Vec<Cell>, times_to_run: usize) {
     //TODO: This currently just spams the same value in multiple memory cells, change this up
     //for now and for pure demonstration purposes, it is fine and will work, but is predictable and boring
     for i in 0..times_to_run {
-        let cell_index = malloc!(
-            cells,
-            (data[root] as i32) * (data[root] as i32),
-            roots[root]
-        )?;
+        let index = malloc!(cells, (data[root] as i32) * (data[root] as i32), roots[root]);
 
-        //print if it was a success or not
-        if cell_index.is_some() {
-            println!(
-                "Success! Cell with value {} was created at pos {} referencing root {}",
-                (data[root] as i32) * (data[root] as i32),
-                cell_index.unwrap(),
-                roots[root]
-            );
+        match index {
+            Ok(index) => println!("Cell at position {} was used", index),   //Report to the console what index was used
+            Err(why) => println!("{}", match why {
+                AllocError::occupied
+                    => "Space is occupied",                                         //Report error
+            }),
         }
     }
     println!(); //Add a line
@@ -401,11 +393,19 @@ fn parse_param_to_usize(param: Option<&&str>, default: usize) -> usize {
 
 //Function for handling allocation from prompt
 //TODO: some tasks to expand here
-fn handle_prompt_allocation(cells: &mut Vec<Cell>, index: usize) -> IndexResult {
+fn handle_prompt_allocation(cells: &mut Vec<Cell>, index: usize) {
     let mut rng: ThreadRng = rand::rng();
     let data: i32 = rng.random_range(0..50); //Generate some arbitrary data TODO: actually handle data
 
-    malloc!(cells, data, None, index)?; //Handle no references TODO: Meanful connection of references
+    let index = malloc!(cells, data, None, index); //Handle no references TODO: Meanful connection of references
+
+    match index {
+        Ok(index) => println!("Cell at position {} was used", index),   //Report to the console what index was used
+        Err(why) => println!("{}", match why {
+            AllocError::occupied
+                => "Space is occupied",                                         //Report error
+        }),
+    }
 }
 
 //Main input loop of the program, listen for commands from the user
@@ -417,12 +417,12 @@ fn listen(listening: bool, cells: &mut Vec<Cell>) {
             .read_line(&mut input) //Read what the user types and store it in input
             .expect("Unable to read Stdin"); //On fail, panic with msg
 
-        let input: Vec<&str> = input.split(' ').collect(); //remove whitespace
-                                                           //Get the first command
+        let input: Vec<&str> = input.split(' ').collect();      //remove whitespace
+                                                                //Get the first command
         let command: &str = input[0];
         //Commands can take up to 2 inputs
-        let fparam: Option<&&str> = input.get(1); //&& reference to a reference
-        let sparam: Option<&&str> = input.get(2); //&& reference to a reference
+        let fparam: Option<&&str> = input.get(1);       //&& reference to a reference
+        let sparam: Option<&&str> = input.get(2);       //&& reference to a reference
 
         //these parameters will always be cell index position, so make adjustments
         let index1 = parse_param_to_usize(fparam, 0); // Default to 0 if parameter missing or invalid
