@@ -15,7 +15,7 @@
     working implementation of a mark and sweep garbage collector
 
     However, it is mostly a demonstration that operates within Rust, with controlled memory and
-    only with a primitive data type.
+    only with a primitive data type (i32).
 
     This is a essentially a working memory management system that is existing alongside
     Rust's already established memory system. This garabage collector manages its own
@@ -45,11 +45,11 @@
         -> Show which objects were marked as reclaimed
 */
 
-//TODO: All functions within match arm need to return Ok()
+//TODO: Need to update references to support a DFS Mark traversal system
 
 //For collecting arguments from the user
-use rand::{prelude::*, seq::index};
-use std::io::{self};
+use rand::prelude::*;
+use std::{io::{self}, vec};
 
 //Structures
 //A cell of memory that will be stored in a vector -> making up a greater "memory pool"
@@ -57,10 +57,12 @@ use std::io::{self};
 struct Cell {
     data: Option<i32>, //Actual data within the memory pool...
     //  ...stored as an option as the default data value should be None
-    reference_count: i32, //Is this object still being referenced? (amount of references)
-    freed: bool,          //False || in use (referenced), True || not in use (de-referenced)
-    is_root: bool,        //Declares whether or not this is a root (static) entrance variable
-    references_cell: Option<usize>, //The index of a cell this cell references
+    reference_count: i32,           //Is this object still being referenced? (amount of references)
+    freed: bool,                    //False || in use (referenced), True || not in use (de-referenced)
+    is_root: bool,                  //Declares whether or not this is a root (static) entrance variable
+    by_ref: Vec<usize>,             //Determins what cell(s) reference this cell
+    will_ref: Vec<usize>,           //The index of a cell this cell calls reference to
+    marked: bool,                   //Flag to signal if the cell has been marked for sweeping
 }
 
 //Implementation for a Cell
@@ -68,30 +70,22 @@ impl Cell {
     //Creates a new cell with default values
     fn new() -> Cell {
         Cell {
-            data: None,             //Cell starts with no data
-            reference_count: 0,     //Cell starts with no references
-            freed: true,            //Cell starts as free, avaliable for use
-            is_root: false,         //By default, cell is not a root
-            references_cell: None,  //References None cell
+            data: None,                 //Cell starts with no data
+            reference_count: 0,         //Cell starts with no references
+            freed: true,                //Cell starts as free, avaliable for use
+            is_root: false,             //By default, cell is not a root
+            by_ref: Vec::new(),         //This cell is referenced by
+            will_ref: Vec::new(),       //References None cell
+            marked: false,              //If the cell has been marked for sweeping
         }
     }
-
-    // // Clone the current Cell
-    // fn get_cell(&self) -> Cell {
-    //     Cell {
-    //         data: self.data,
-    //         reference_count: self.reference_count,
-    //         freed: self.freed,
-    //         is_root: self.is_root,
-    //         references_cell: self.references_cell
-    //     }
-    // }
 }
 
 //Enum to define error behaviour
 #[derive(Debug)]
 enum AllocError {
-    occupied,
+    Occupied,
+    NoFreeMemory,
 }
 
 //Result type to define errors
@@ -101,13 +95,14 @@ type IndexResult = Result<usize, AllocError>;
 macro_rules! malloc {
     // Pattern 0 Just data - find first available cell with no reference
     ($cells:expr, $data:expr) => {
-        free_alloc($cells, $data, 0)  // Using 0 as default reference
+        free_alloc($cells, $data, None)   //Allocate data in memory that has no references
+                                                //... this value would be sweeped by the garbage collector
     };
 
     //Pattern 1 (Automatic, first free-allocation)
-    ($cells:expr, $data:expr, $reference:expr) => {
+    ($cells:expr, $data:expr, $reference_to:expr) => {
         //Three parameters, call free_alloc
-        free_alloc($cells, $data, $reference)
+        free_alloc($cells, $data, $reference_to)
     };
 
     //Pattern 2 (specific-allocation)
@@ -133,9 +128,17 @@ fn init_pool(size: usize) -> Vec<Cell> {
 //to be stored here. (At this stage, only supports storing i32 primitive values)
 //Return an index that points to the location in memory that the data is stored
 //Takes a mutable reference to the memory pool so it can update and iterate on it.
-fn free_alloc(cells: &mut Vec<Cell>, req_data: i32, reference: usize) -> IndexResult {
+fn free_alloc(cells: &mut Vec<Cell>, req_data: i32, ref_to: Option<usize>) -> IndexResult {
+    
+
+    //Handle a potential None reference
+    //...
+
+    //Derive reference by?
+    
+    
     println!("Receiving data value {}", req_data);
-    println!("Receiving reference root {}", reference);
+    println!("Receiving reference root {}", ref_to.unwrap());
 
     //Find first avaliable cell to be used
     for i in 0..cells.len() {
@@ -146,17 +149,25 @@ fn free_alloc(cells: &mut Vec<Cell>, req_data: i32, reference: usize) -> IndexRe
                 reference_count: 1,
                 freed: false,
                 is_root: false,
-                references_cell: Some(reference),
+                by_ref: vec![/* TODO: */],                  //Handle this
+                will_ref: vec![ref_to.unwrap()],            //TODO: Handle this value more safely
+                marked: false,
             };
 
             return Ok(i); //If successful, return index I as position stored
         }
     }
-    Err(AllocError::occupied) //-> Return space_occupied as there is no memory freely avaliable for storing any data at the moment
+    Err(AllocError::Occupied) //-> Return space_occupied as there is no memory freely avaliable for storing any data at the moment
 }
 
 //Allocates at a specific memory position
 fn spec_alloc(cells: &mut Vec<Cell>, req_data: i32, reference: Option<usize>, store_pos: usize) -> IndexResult {
+    
+    //Handle a potentional None reference
+
+    //Derive which cell index position this new memory cell is referenced by
+    
+    
     //check if memory is allocated
     if cells[store_pos].freed == true {
         //the memory is free for use
@@ -166,13 +177,15 @@ fn spec_alloc(cells: &mut Vec<Cell>, req_data: i32, reference: Option<usize>, st
             reference_count: 1,
             freed: false,
             is_root: false,
-            references_cell: reference,
+            will_ref: vec![reference.unwrap()],             //TODO: Error handle whether or not this will panic, might need to do a push()
+            by_ref: vec![/*TODO */],                                 //TODO: Input derived value here
+            marked: false,
         };
 
         return Ok(store_pos);
     }
 
-    Err(AllocError::occupied) //Return none as the memory position is not free, handle this by freeing pos at call
+    Err(AllocError::Occupied) //Return none as the memory position is not free, handle this by freeing pos at call
 }
 
 //frees the data at the pointer index position
@@ -219,7 +232,7 @@ fn unroot(cells: &mut Vec<Cell>) {
         }
     }
 
-    println!(); //Add a space
+    println!();         //Print a blank line at the end of the func
 }
 
 //populate any anymaining cells with data that is not referencing anything (these will be sweeped)
@@ -238,7 +251,7 @@ fn populate_remaining(cells: &mut Vec<Cell>) {
         }
     }
 
-    println!();
+    println!();         //Print a blank line at the end of the func
 }
 
 //Function to view the current state of the memory cells
@@ -246,18 +259,20 @@ fn view_state(cells: &Vec<Cell>) {
     //just print each cell
     for i in 0..cells.len() {
         print!(
-            "\nCell |{}|:
-        \n1. Has data?: {}
-        \n2. Is free?: {}
-        \n3. Is root?: {}
-        \n4. Ref amt: {}
-        \n5. References?: {}",
-            i,
-            cells[i].data.is_some(),
-            cells[i].freed,
-            cells[i].is_root,
-            cells[i].reference_count,
-            cells[i].references_cell.is_some()
+            "Cell |{}|:
+        1. Has data?: {}
+        2. Is free?: {}
+        3. Is root?: {}
+        4. Ref amt: {}
+        5. Ref Other?: {}
+        6. Red By?: {}\n",
+            i,                              //Cell position
+            cells[i].data.is_some(),        //Does this cell currently store any data?
+            cells[i].freed,                 //Is this cell free?
+            cells[i].is_root,               //Is this cell a root?
+            cells[i].reference_count,       //How many references does this cell have <inclusive>
+            cells[i].will_ref.is_empty(),   //Displays if this cell is referening another cell
+            cells[i].by_ref.is_empty(),     //Displays if this cell is referenced by another cell
         );
     }
 }
@@ -284,15 +299,18 @@ fn show_message(a: Option<usize>, b: Option<String>) {
 //The marking phase of the garbage collector
 //Normally, you would do a recursive search starting from the roots, but for demonstration purposes this works enough for the assignment
 fn mark(cells: &Vec<Cell>) -> Vec<usize> {
-    // //get root index position
-    // let mut indexs: Vec<usize> = Vec::new();
-    // for i in 0..cells.len() {
-    //     if cells[i].is_root {
-    //         indexs.push(i);
-    //     }
-    // }
+    //get root index position
+    let mut roots: Vec<usize> = Vec::new();
+    for i in 0..cells.len() {
+        if cells[i].is_root {
+            roots.push(i);
+        }
+    }
 
-    // //
+    //Traverse the graph (DFS) and mark them with a mark bit flag
+    //Left->Right traversal
+
+    
 
     //Loop through all the cells and record their index positions if they are not a root or
     //dont reference another cell
@@ -357,13 +375,15 @@ fn create_references(cells: &mut Vec<Cell>, times_to_run: usize) {
     //TODO: This currently just spams the same value in multiple memory cells, change this up
     //for now and for pure demonstration purposes, it is fine and will work, but is predictable and boring
     for i in 0..times_to_run {
-        let index = malloc!(cells, (data[root] as i32) * (data[root] as i32), roots[root]);
+        let index = malloc!(cells, (data[root] as i32) * (data[root] as i32), Some(roots[root]));   //First free allocation
 
         match index {
             Ok(index) => println!("Cell at position {} was used", index),   //Report to the console what index was used
             Err(why) => println!("{}", match why {
-                AllocError::occupied
-                    => "Space is occupied",                                         //Report error
+                AllocError::Occupied
+                    => "Space is occupied",     //Report error
+                AllocError::NoFreeMemory
+                    => "No avaliable memory found",
             }),
         }
     }
@@ -402,8 +422,10 @@ fn handle_prompt_allocation(cells: &mut Vec<Cell>, index: usize) {
     match index {
         Ok(index) => println!("Cell at position {} was used", index),   //Report to the console what index was used
         Err(why) => println!("{}", match why {
-            AllocError::occupied
+            AllocError::Occupied
                 => "Space is occupied",                                         //Report error
+            AllocError::NoFreeMemory
+                => "No free memory avaliable",
         }),
     }
 }
