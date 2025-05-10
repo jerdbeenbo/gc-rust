@@ -1,5 +1,5 @@
 /*
-    This is a barebones garbage collector (mark and sweep) for Rust, demonstrating the
+    This is a barebones "virtual" garbage collector (mark and sweep) for Rust, demonstrating the
     advantages of Rust's ownership and borrowing features compared against a garbage collector implementation.
 
     What does a garbage collector do?
@@ -8,12 +8,15 @@
         - It reclaims memory from objects that no longer accessible
         - All done automatically without explicitly freeing memory manually
 
-    This is a functional, albiet very small garbage collector that manages memory through
-    the use of a memory pool (Vec of Cell), it tracks what memory is in use, reclaims memory that
-    is not being referenced anymore. However, think of this more as an educational demonstration than a standalone
-    working implementation of a mark and sweep garbage collector
+    This is a functional, albeit very small garbage collector that manages memory 
+    through the use of a memory pool (implemented as a Vec<Cell>). It tracks which memory 
+    is in use and reclaims memory that is no longer referenced. However, think of this more 
+    as an educational demonstration than a standalone working implementation of a 
+    mark-and-sweep garbage collector, as this GC operates on top of Rust's memory management 
+    rather than directly managing allocations to the physical heap. Instead, we abstract 
+    this away and use a Vector as a "virtual heap."
 
-    However, it is mostly a demonstration that operates within Rust, with controlled memory and
+    It is mostly a demonstration that operates within Rust, with controlled memory and
     only with a primitive data type (i32).
 
     This is a essentially a working memory management system that is existing alongside
@@ -514,6 +517,11 @@ fn main() {
 
     //Fixed-size Memory Pool of Memory Cells stored in a vec (the vector IS the memory pool)
     //This would be comparible to the heap
+    /*
+    A true heap would use actual memory addresses and pointers.
+    This implementation is a simulation of heap behavior within Rust's safe memory model.
+    Therefore we handle 'pointers' as just index positions of this vector <usize>
+     */
     let mut cells: Vec<Cell> = init_pool(20);
 
     let msg: usize = 1; //Welcome message
