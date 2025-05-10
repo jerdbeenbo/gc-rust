@@ -6,9 +6,9 @@ GC-Rust is an educational project demonstrating a barebones mark-and-sweep garba
 
 ## Purpose
 
-This is **not** a production-ready garbage collector. Rather, it's a simplified demonstration that:
+This is **not** a production-ready garbage collector. Rather, it's a simplified demonstration that sits on top of Rust and manages a "Virtual Heap":
 
-- Creates a controlled memory environment (a "memory pool" using a Vec of Cells)
+- Creates a controlled memory environment (a "memory pool" using a Vec of struct Cells)
 - Implements basic memory allocation and deallocation
 - Tracks references between objects
 - Identifies and reclaims unreachable memory through mark-and-sweep collection
@@ -18,7 +18,7 @@ The primary goal is educational: to understand the conceptual differences betwee
 ## Limitations
 
 - Works only with i32 primitive values (no complex objects)
-- Uses a simplified marking approach that may not reflect all nuances of production garbage collectors
+- Tries to remain true to the tradititional Mark and Sweep algorithm, but some liberties may have been taken
 - Contains a bounded memory pool rather than dynamically expanding memory
 - Operates as a simulation alongside Rust's own memory management, rather than replacing it
 - Reference patterns are mostly artificial/manual, rather than occurring organically through program execution
@@ -39,7 +39,7 @@ The implementation includes:
 ### Prerequisites
 
 - Rust and Cargo installed on your system
-- The rand crate for random value generation
+- The rand crate for random value generation <- only dependency, which exisits to populate arbitrary <i32> data
 
 ### Installation
 
