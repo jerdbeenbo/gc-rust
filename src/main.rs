@@ -63,14 +63,62 @@ impl Cell {
 //Enum to define error behaviour
 #[derive(Debug)]
 enum AllocError {
-    Occupied,
-    NoFreeMemory,
+    Occupied,           //Target space is occupied
+    NoFreeMemory,       //No free space was found to allocate memory
 }
 
-//Result type to define errors
+///Index Result which is the return type for allocation functions
+/// Either, it was successful and it returns the index position <usize>
+/// Otherwise, it was unsuccessful -> where we return an Allocation Error specified enum above.
 type IndexResult = Result<usize, AllocError>;
 
-//Macros
+//Macro to abstract away what allocation function to actually use, just pass in parameters and the macro will decide which arm to match
+/// Allocates memory in the memory pool with different patterns:
+///
+/// # Patterns
+///
+/// ## Pattern 0: Just data
+/// ```
+/// malloc!(cells, data)
+/// ```
+/// Allocates data in the first available cell with no references.
+/// This value would be swept by the garbage collector if unreferenced.
+///
+/// ## Pattern 1: Automatic free allocation
+/// ```
+/// malloc!(cells, data, reference_to)
+/// ```
+/// Allocates data with a reference to another cell.
+///
+/// ## Pattern 2: Specific allocation
+/// ```
+/// malloc!(cells, data, reference, pos)
+/// ```
+/// Allocates data at a specific position with a reference to another cell.
+///
+/// # Arguments
+///
+/// * `cells` - A mutable reference to the memory pool vector
+/// * `data` - The value to store in the cell
+/// * `reference_to` - Optional reference to another cell index
+/// * `pos` - Optional specific position to allocate at
+///
+/// # Returns
+///
+/// * `IndexResult` - Result containing either the allocated index or an allocation error
+///
+/// # Examples
+///
+/// ```
+/// // Allocate data with no references
+/// let index = malloc!(cells, 42);
+///
+/// // Allocate data with a reference to cell at index 0
+/// let index = malloc!(cells, 42, Some(0));
+///
+/// // Allocate data at position 5 with a reference to cell at index 0
+/// let index = malloc!(cells, 42, Some(0), 5);
+/// ```
 macro_rules! malloc {
     // Pattern 0 Just data - find first available cell with no reference
     ($cells:expr, $data:expr) => {
@@ -107,18 +155,8 @@ fn init_pool(size: usize) -> Vec<Cell> {
 //to be stored here. (At this stage, only supports storing i32 primitive values)
 //Return an index that points to the location in memory that the data is stored
 //Takes a mutable reference to the memory pool so it can update and iterate on it.
-fn free_alloc(cells: &mut Vec<Cell>, req_data: i32, ref_to: Option<usize>) -> IndexResult {
+fn free_alloc(cells: &mut Vec<Cell>, req_data: i32, ref_to: Option<usize>) -> IndexResult {    
     
-
-    //Handle a potential None reference
-    //...
-
-    //Derive reference by?
-    
-    
-    println!("Receiving data value {}", req_data);
-    println!("Receiving reference root {}", ref_to.unwrap());
-
     //Find first avaliable cell to be used
     for i in 0..cells.len() {
         if cells[i].freed == true {
@@ -128,24 +166,25 @@ fn free_alloc(cells: &mut Vec<Cell>, req_data: i32, ref_to: Option<usize>) -> In
                 reference_count: 1,
                 freed: false,
                 is_root: false,
-                by_ref: vec![/* TODO: */],                  //Handle this
-                will_ref: vec![ref_to.unwrap()],            //TODO: Handle this value more safely
+                by_ref: vec![],                     //Initially, no cells will reference this cell
+                will_ref: if ref_to.is_some() {
+                    vec![ref_to.unwrap()]           //Reference was provided at allocation            
+                }
+                else {
+                    vec![]                          //Empty vector, no reference was provided at allocation
+                },                                          
                 marked: false,
             };
 
             return Ok(i); //If successful, return index I as position stored
         }
     }
-    Err(AllocError::Occupied) //-> Return space_occupied as there is no memory freely avaliable for storing any data at the moment
+    Err(AllocError::NoFreeMemory) //-> Retern no free memory as an error
 }
 
 //Allocates at a specific memory position
 fn spec_alloc(cells: &mut Vec<Cell>, req_data: i32, reference: Option<usize>, store_pos: usize) -> IndexResult {
-    
-    //Handle a potentional None reference
-
-    //Derive which cell index position this new memory cell is referenced by
-    
+   
     
     //check if memory is allocated
     if cells[store_pos].freed == true {
@@ -156,8 +195,12 @@ fn spec_alloc(cells: &mut Vec<Cell>, req_data: i32, reference: Option<usize>, st
             reference_count: 1,
             freed: false,
             is_root: false,
-            will_ref: vec![reference.unwrap()],             //TODO: Error handle whether or not this will panic, might need to do a push()
-            by_ref: vec![/*TODO */],                                 //TODO: Input derived value here
+            will_ref: if reference.is_some() {
+                vec![reference.unwrap()]            //Reference was provided at allocation
+            } else {
+                vec![]                              //No reference was provided at allocation
+            },
+            by_ref: vec![],                         //Start with no cell referencing this cell
             marked: false,
         };
 
@@ -218,13 +261,13 @@ fn unroot(cells: &mut Vec<Cell>) {
 fn populate_remaining(cells: &mut Vec<Cell>) {
     //loop through and populate all free cells
     let mut rng = rand::rng();
-    let random_val: i32 = rng.random_range(0..1000); //Generate a random arbitrary int value
+    let random_val: i32 = rng.random_range(0..1000);    //Generate a random arbitrary int value
 
     for i in 0..cells.len() {
         if cells[i].freed == true {
             //Cell is free
-            cells[i].data = Some(random_val); //Assign some arbitrary data (exact val, not important)
-            cells[i].freed = false; //This cell now has data occupying it
+            cells[i].data = Some(random_val);           //Assign some arbitrary data (exact val, not important)
+            cells[i].freed = false;                     //This cell now has data occupying it
 
             println!("Cell {} has been populated", i);
         }
@@ -288,6 +331,7 @@ fn mark(cells: &Vec<Cell>) -> Vec<usize> {
 
     //Traverse the graph (DFS) and mark them with a mark bit flag
     //Left->Right traversal
+    //TODO
 
     
 
@@ -394,9 +438,9 @@ fn parse_param_to_usize(param: Option<&&str>, default: usize) -> usize {
 //TODO: some tasks to expand here
 fn handle_prompt_allocation(cells: &mut Vec<Cell>, index: usize) {
     let mut rng: ThreadRng = rand::rng();
-    let data: i32 = rng.random_range(0..50); //Generate some arbitrary data TODO: actually handle data
+    let data: i32 = rng.random_range(0..50);                                    //Generate some arbitrary data TODO: actually handle data
 
-    let index = malloc!(cells, data, None, index); //Handle no references TODO: Meanful connection of references
+    let index = malloc!(cells, data, None, index);  //Handle no references TODO: Meanful connection of references
 
     match index {
         Ok(index) => println!("Cell at position {} was used", index),   //Report to the console what index was used
