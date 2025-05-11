@@ -31,7 +31,7 @@
 
 //For collecting arguments from the user
 use rand::prelude::*;
-use std::{io::{self}, vec};
+use std::{io::{self}, result, vec};
 
 //Structures
 //A cell of memory that will be stored in a vector -> making up a greater "memory pool"
@@ -68,6 +68,7 @@ impl Cell {
 enum AllocError {
     Occupied,           //Target space is occupied
     NoFreeMemory,       //No free space was found to allocate memory
+    DataIsFree,         //The data is not in use, cannot mutate it
 }
 
 ///Index Result which is the return type for allocation functions
@@ -321,9 +322,70 @@ fn show_message(a: Option<usize>, b: Option<String>) {
     }
 }
 
+
+///Function that is used to handle cell viability on creating references, can take n cells to check
+fn cell_viability(cells: &Vec<Cell>, _cells: &Vec<usize>) -> IndexResult {
+
+    //Check if the cells are free (i.e. not in use)
+    for cell_index in _cells {
+        if cells[*cell_index].freed {
+            //If the cell IS free, then we shouldn't be returning a reference
+            return Err(AllocError::DataIsFree);
+        }
+    }
+
+    //If no errors were found, return 1
+    Ok(1)
+}
+
+fn assign_reference(cells: &mut Vec<Cell>, c1pos: usize, c2pos: usize) {
+
+    //Assign reference between two cells
+    /*
+        -> c1pos WILL REFERENCE c2pos
+        therefore, c2pos will be referenced BY c1pos
+     */
+
+    //Check if the data can be used
+    let cells_to_check: Vec<usize> = vec![c1pos, c2pos];
+    let result: IndexResult = cell_viability(&cells, &cells_to_check);
+
+    //Boolean flag
+    let mut check: bool = false;
+
+    //Perform action or report error
+    match result {
+        Ok(val) => check = true,                        //Boolean flag to progress the function
+        Err(why) => println!("{}", match why {
+            AllocError::Occupied
+                => "Space is occupied",                         //Report error
+            AllocError::NoFreeMemory
+                => "No free memory avaliable",
+            AllocError::DataIsFree
+                => "The memory was free, not suitable for use",
+        }),
+    }
+
+    //Only create references if allowed
+    if check {
+        //Cell 1
+        cells[c1pos].reference_count = cells[c1pos].reference_count + 1;        //Increase reference count
+        if !cells[c1pos].will_ref.contains(&c2pos) {                            //...only add reference if it doesn't already exist
+            cells[c1pos].will_ref.push(c2pos);                                  //Push c2pos into vector of references
+        }
+
+        //Cell 2
+        cells[c2pos].reference_count = cells[c2pos].reference_count + 1;        //Increase reference count
+        if !cells[c2pos].by_ref.contains(&c1pos) {                              //...only add reference if it doesn't already exist
+            cells[c2pos].by_ref.push(c1pos);                                    //Push c1pos into vector of references
+        }
+    }
+
+}
+
 //The marking phase of the garbage collector
 //Normally, you would do a recursive search starting from the roots, but for demonstration purposes this works enough for the assignment
-fn mark(cells: &Vec<Cell>) -> Vec<usize> {
+fn mark(cells: &mut Vec<Cell>) -> Vec<usize> {
     //get root index position
     let mut roots: Vec<usize> = Vec::new();
     for i in 0..cells.len() {
@@ -364,14 +426,14 @@ fn sweep(cells: &mut Vec<Cell>, sweep_list: Vec<usize>) {
 //Begin the garbage collection
 fn collect(cells: &mut Vec<Cell>) {
     //'mark' cells to be freed (sweeped)
-    let sweep_list: Vec<usize> = mark(&cells);
+    let sweep_list: Vec<usize> = mark(cells);
 
     sweep(cells, sweep_list);
 }
 
 //The program will randomly create references between memory cells with
 //real data
-fn create_references(cells: &mut Vec<Cell>, times_to_run: usize) {
+fn create_free_ref(cells: &mut Vec<Cell>, times_to_run: usize) {
     let mut rng = rand::rng();
 
     //keep track of what cells are roots
@@ -410,6 +472,8 @@ fn create_references(cells: &mut Vec<Cell>, times_to_run: usize) {
                     => "Space is occupied",     //Report error
                 AllocError::NoFreeMemory
                     => "No avaliable memory found",
+                AllocError::DataIsFree
+                    => "The memory was free, not suitable for use",
             }),
         }
     }
@@ -452,6 +516,8 @@ fn handle_prompt_allocation(cells: &mut Vec<Cell>, index: usize) {
                 => "Space is occupied",                                         //Report error
             AllocError::NoFreeMemory
                 => "No free memory avaliable",
+            AllocError::DataIsFree
+                => "The memory was free, not suitable for use",
         }),
     }
 }
@@ -483,20 +549,23 @@ fn listen(listening: bool, cells: &mut Vec<Cell>) {
                 "\nAvaliable Commands:
             \n1. --root <cell_index_pos>(0-19) <cell_index_pos>(0-19)
             \n2. --unroot
-            \n3. --create_ref <amount_of_times>
-            \n4. --state
-            \n5. --populate
-            \n6. --gc
-            \n7. --exit"
+            \n3. --arb_ref <amount_of_times>
+            \n4. --link_ref <Cell 1> *references...->* <Cell 2>
+            \n5. --alloc_at <Cell>
+            \n6. --state
+            \n7. --populate
+            \n8. --gc
+            \n9. --exit"
             ), //Print a the accepted list of commands
             "--root" => configure_roots(cells, index1, index2), //Root cells, or default a: 0, b: len-1
             "--unroot" => unroot(cells),                        //Unroot all
-            "--create_ref" => create_references(cells, index1), //Run as many times as specified
+            "--arb_ref" => create_free_ref(cells, index1), //Run as many times as specified
             "--gc" => collect(cells), //Run the garbage collector (mark and sweep)
             "--state" => view_state(cells),
             "--exit" => println!("Exiting"),
             "--populate" => populate_remaining(cells),
             "--alloc_at" => handle_prompt_allocation(cells, index1),
+            "--link_ref" => assign_reference(cells, index1, index2),    //Cell 1 references Cell 2
             _ => println!("Unknown command. Type 'help' for assistance."), //Default if command doesn't match
         }
     }
