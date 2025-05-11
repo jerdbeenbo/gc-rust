@@ -31,7 +31,7 @@
 
 //For collecting arguments from the user
 use rand::prelude::*;
-use std::{io::{self}, result, vec};
+use std::{io::{self}, vec};
 
 //Structures
 //A cell of memory that will be stored in a vector -> making up a greater "memory pool"
