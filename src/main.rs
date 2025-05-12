@@ -301,16 +301,16 @@ fn view_state(cells: &Vec<Cell>) {
     2. Is free?: {}
     3. Is root?: {}
     4. Ref amt: {}
-    5. Ref Other?: {}
-    6. Ref By?: {}
+    5. Ref Other?: {:?}
+    6. Ref By?: {:?}
     7. MARKED: {}\n",
             i,                              //Cell position
             cells[i].data.is_some(),        //Does this cell currently store any data?
             cells[i].freed,                 //Is this cell free?
             cells[i].is_root,               //Is this cell a root?
             cells[i].reference_count,       //How many references does this cell have <inclusive>
-            !cells[i].will_ref.is_empty(),   //Displays if this cell is referening another cell
-            !cells[i].by_ref.is_empty(),     //Displays if this cell is referenced by another cell
+            cells[i].will_ref.iter(),       //Displays what cells this cell references
+            cells[i].by_ref.iter(),         //Displays what other cells reference this one
             cells[i].marked,
         );
     }
