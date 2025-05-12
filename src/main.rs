@@ -31,7 +31,7 @@
 
 //For collecting arguments from the user
 use rand::prelude::*;
-use std::{io::{self}, vec};
+use std::{collections::VecDeque, io::{self}, vec};
 
 //Structures
 //A cell of memory that will be stored in a vector -> making up a greater "memory pool"
@@ -44,7 +44,7 @@ struct Cell {
     is_root: bool,                  //Declares whether or not this is a root (static) entrance variable
     by_ref: Vec<usize>,             //Determins what cell(s) reference this cell
     will_ref: Vec<usize>,           //The index of a cell this cell calls reference to
-    marked: bool,                   //Flag to signal if the cell has been marked for sweeping
+    marked: bool,                   //Flag to signal if the cell has been marked for keeping. Any cell that is not marked will be sweeped
 }
 
 //Implementation for a Cell
@@ -58,7 +58,7 @@ impl Cell {
             is_root: false,             //By default, cell is not a root
             by_ref: Vec::new(),         //This cell is referenced by
             will_ref: Vec::new(),       //References None cell
-            marked: false,              //If the cell has been marked for sweeping
+            marked: false,              //If the cell has been marked for keeping. Any cell that is not marked will be sweeped
         }
     }
 }
@@ -231,8 +231,10 @@ fn configure_roots(cells: &mut Vec<Cell>, a: usize, b: usize) {
         println!("One value was out of bounds, using defaults...");
         cells[0].is_root = true;
         cells[0].freed = false;
+        cells[0].marked = true;     //Mark this cell to not be swept, as it is a root.
         cells[1].is_root = true;
         cells[1].freed = false;
+        cells[1].marked = true;     //Mark this cell to not be swept, as it is a root.
 
         println!("cells {} and {} are now the roots", 0, 19);
     } else {
@@ -240,8 +242,10 @@ fn configure_roots(cells: &mut Vec<Cell>, a: usize, b: usize) {
         //Unfree them as they'll have values (soon)
         cells[a].is_root = true;
         cells[a].freed = false;
+        cells[a].marked = true;     //Mark this cell to not be swept, as it is a root.
         cells[b].is_root = true;
         cells[b].freed = false;
+        cells[b].marked = true;     //Mark this cell to not be swept, as it is a root.
 
         println!("cells {} and {} are now the roots", a, b);
     }
@@ -285,13 +289,13 @@ fn view_state(cells: &Vec<Cell>) {
     //just print each cell
     for i in 0..cells.len() {
         print!(
-            "Cell |{}|:
-        1. Has data?: {}
-        2. Is free?: {}
-        3. Is root?: {}
-        4. Ref amt: {}
-        5. Ref Other?: {}
-        6. Red By?: {}\n",
+"Cell |{}|:
+    1. Has data?: {}
+    2. Is free?: {}
+    3. Is root?: {}
+    4. Ref amt: {}
+    5. Ref Other?: {}
+    6. Ref By?: {}\n",
             i,                              //Cell position
             cells[i].data.is_some(),        //Does this cell currently store any data?
             cells[i].freed,                 //Is this cell free?
@@ -383,9 +387,15 @@ fn assign_reference(cells: &mut Vec<Cell>, c1pos: usize, c2pos: usize) {
 
 }
 
-//The marking phase of the garbage collector
-//Normally, you would do a recursive search starting from the roots, but for demonstration purposes this works enough for the assignment
-fn mark(cells: &mut Vec<Cell>) -> Vec<usize> {
+///Runs the marking (Non-recursive stack-based DFS) algorithm on all cells of memory on the virtual heap.
+/// #### Parameters
+/// `cells` -> requires a mutable reference to the cells vector of type `Vec<Cell>`
+/// #### Example usage
+/// ```
+/// mark(cells);
+/// ```
+/// Does not return anything, as it mutates the cells directly and marks their `marked` boolean flag
+fn mark(cells: &mut Vec<Cell>) {
     //get root index position
     let mut roots: Vec<usize> = Vec::new();
     for i in 0..cells.len() {
@@ -395,40 +405,122 @@ fn mark(cells: &mut Vec<Cell>) -> Vec<usize> {
     }
 
     //Traverse the graph (DFS) and mark them with a mark bit flag
-    //Left->Right traversal
-    //TODO
-
+    //Left->Right traversal Vertical first horizontal next
     
+    //Start at left-most root (index 0 of the roots vector), then sequentially move along roots until all cells are marked as traversed
+    //The by_ref field will be how we fallback recursively
+    //Follow the will_ref until a dead end
 
-    //Loop through all the cells and record their index positions if they are not a root or
-    //dont reference another cell
-    let mut r: Vec<usize> = Vec::new();
-    for i in 0..cells.len() {
-        if cells[i].reference_count == 0 && cells[i].is_root == false {
-            r.push(i);
+    //TODO: When assigning roots, make sure they are MARKED
+
+    let mut stack: VecDeque<usize> = VecDeque::new();
+
+    for root in roots {
+        //Beginning at the root cell, begin updating cells
+        //Root <usize> is our index link into the cells heap memory pool
+        if cells[root].will_ref.is_empty() {
+            //Cell doesn't reference anything
+            continue;           //Specifically specifiy to continue for readability...
+        }
+        else {
+            //-> traverse its references
+
+            //Initialise variables for current and next position
+            let mut current_pos: usize = root;
+
+            //Ensure root is marked (Roots should be marked when they are made)
+            if !cells[current_pos].marked {
+                //if it is not marked, fix and mark here
+                cells[current_pos].marked = true;
+            }
+
+            //Add adjacent nodes into stack
+            for node in 0..cells[current_pos].will_ref.len() {
+                
+                //Record the nodes
+                stack.push_back(cells[current_pos].will_ref[node]);
+            }
+
+            //Start traversing along the stack nodes
+            for i in 0..stack.len() {             //will_ref is a vector of cells that current_pos references
+
+                //Visited this node, pop it from the stack
+                stack.pop_front();
+
+                //This cell is still in use (is still being referenced)
+                //mark as safe to keep
+                cells[stack[i]].marked = true;
+
+                //Now check if the cell also has its OWN list of referenced cells
+                if !cells[stack[i]].will_ref.is_empty() {
+                    // This cell has it's own list of references, continue further down the graph
+
+                    //move cell position
+                    current_pos = stack[i];
+
+                    //Add adjacent nodes into stack
+                    for node in 0..cells[current_pos].will_ref.len() {
+                        
+                        //Record the nodes
+                        stack.push_back(cells[current_pos].will_ref[node]);
+                    }
+                }
+            }
+
         }
     }
+}   
 
-    //return a vector of index positions to sweep (free)
-    r
-}
+        // //Loop through all the cells and record their index positions if they are not a root or
+    // //dont reference another cell
+    // let mut r: Vec<usize> = Vec::new();
+    // for i in 0..cells.len() {
+    //     if cells[i].reference_count == 0 && cells[i].is_root == false {
+    //         r.push(i);
+    //     }
+    // }
 
-//The sweeping phase of the garbage collector (free any memory cell that isn't referencing anything or is being referenced)
-fn sweep(cells: &mut Vec<Cell>, sweep_list: Vec<usize>) {
+    // //return a vector of index positions to sweep (free)
+    // r 
+
+/// The sweeping phase of the garbage collector (free any memory cell that isn't referencing anything or is being referenced)
+/// #### Example Cell To Be Swept (Freed)
+/// ```
+/// Cell 
+/// {
+///     data: <...>
+///     reference_count: <...>
+///     freed: <...>
+///     is_root: <...>
+///     by_ref: <...>
+///     will_ref: <...>
+///     marked: false,      // <- This cell is not marked to keep, and therefore it is determined to not be in use anymore          
+/// }
+/// ```
+fn sweep(cells: &mut Vec<Cell>) {
     //free (sweep) all the cells are position usize
 
-    //run the free function on each cell
-    for sweep in sweep_list {
-        free(cells, sweep);
+    //run the free function on each cell that is not marked
+    for i in 0..cells.len() {
+        if !cells[i].marked {
+            free(cells, i);        //pass in cell index position
+        }
     }
 }
 
-//Begin the garbage collection
+/// This function runs the entire garbage collection algorithm.
+/// ### Logic flow
+/// This function runs these two commands.
+/// ```
+/// mark() -> sweep();
+/// ```
+/// And does not return anything, allowing it to be called within a matching arm during the user input phase.
 fn collect(cells: &mut Vec<Cell>) {
     //'mark' cells to be freed (sweeped)
-    let sweep_list: Vec<usize> = mark(cells);
+    mark(cells);
 
-    sweep(cells, sweep_list);
+    //Sweep unreferenced and no longer in use cells
+    sweep(cells);
 }
 
 //The program will randomly create references between memory cells with
@@ -547,15 +639,15 @@ fn listen(listening: bool, cells: &mut Vec<Cell>) {
         match command.trim() {
             "--help" => println!(
                 "\nAvaliable Commands:
-            \n1. --root <cell_index_pos>(0-19) <cell_index_pos>(0-19)
-            \n2. --unroot
-            \n3. --arb_ref <amount_of_times>
-            \n4. --link_ref <Cell 1> *references...->* <Cell 2>
-            \n5. --alloc_at <Cell>
-            \n6. --state
-            \n7. --populate
-            \n8. --gc
-            \n9. --exit"
+    1. --root <cell_index_pos>(0-19) <cell_index_pos>(0-19)
+    2. --unroot
+    3. --arb_ref <amount_of_times>
+    4. --link_ref <Cell 1> *references...->* <Cell 2>
+    5. --alloc_at <Cell>
+    6. --state
+    7. --populate
+    8. --gc
+    9. --exit"
             ), //Print a the accepted list of commands
             "--root" => configure_roots(cells, index1, index2), //Root cells, or default a: 0, b: len-1
             "--unroot" => unroot(cells),                        //Unroot all
