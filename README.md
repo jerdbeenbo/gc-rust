@@ -18,10 +18,9 @@ The primary goal is educational: to understand the conceptual differences betwee
 ## Limitations
 
 - Works only with i32 primitive values (no complex objects)
-- Tries to remain true to the tradititional Mark and Sweep algorithm, but some liberties may have been taken
-- Contains a bounded memory pool rather than dynamically expanding memory
+- Contains a bounded memory (fixed to 20 positions avaliable on the virtual heap) pool rather than dynamically expanding memory
 - Operates as a simulation alongside Rust's own memory management, rather than replacing it
-- Reference patterns are mostly artificial/manual, rather than occurring organically through program execution
+- Reference patterns are mostly artificial/manual, rather than occurring organically through program execution, as this software exisits for demonstration / research purposes only -> not a production ready gc.
 
 ## How It Works
 
@@ -39,7 +38,7 @@ The implementation includes:
 ### Prerequisites
 
 - Rust and Cargo installed on your system
-- The rand crate for random value generation <- only dependency, which exisits to populate arbitrary <i32> data
+- The rand crate for random value generation <- only dependency, which exisits to populate arbitrary `<i32>` data
 
 ### Installation
 
@@ -66,16 +65,18 @@ The program provides an interactive command-line interface. Here are the availab
 - `--help`: Display a list of available commands
 - `--root <pos1> <pos2>`: Designate two cells as roots (entry points for collection)
 - `--unroot`: Remove root status from all cells
-- `--create_ref <amount>`: Create references from roots to new cells with derived values
+- `--arb_ref <amount>`: Create arbitrary references from roots to new cells with derived values
+- `--link_ref <pos1> <pos2>`: Create reference where pos1 will reference pos2, and pos2 will be referenced by pos1
+- `--alloc_at <pos>`: Allocate data at this particular position in memory 
 - `--state`: Display the current state of all memory cells
 - `--populate`: Fill remaining free cells with data (to demonstrate garbage collection)
 - `--gc`: Run the garbage collector (mark and sweep phases)
 - `--exit`: End the program
 
-### Recommended Workflow
+### Simple Example Workflow
 
 1. Start by setting up roots: `--root 0 19` (sets the first and last cells as roots)
-2. Create references: `--create_ref 3` (creates 3 cells that reference the roots)
+2. Create arbitrary references: `--arb_ref 3` (creates 3 cells that reference the roots)
 3. Populate remaining cells: `--populate` (fills unused cells with unreferenced data)
 4. View the memory state: `--state` (see which cells contain data and references)
 5. Run garbage collection: `--gc` (watch as unreferenced cells get reclaimed)

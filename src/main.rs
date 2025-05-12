@@ -189,6 +189,13 @@ fn free_alloc(cells: &mut Vec<Cell>, req_data: i32, ref_to: Option<usize>) -> In
 //Allocates at a specific memory position
 fn spec_alloc(cells: &mut Vec<Cell>, req_data: i32, reference: Option<usize>, store_pos: usize) -> IndexResult {
    
+   let mut ref_amt: i32;
+   //derive reference amt
+   if reference.is_some() {
+        ref_amt = 1;
+   } else {
+        ref_amt = 0;
+   }
     
     //check if memory is allocated
     if cells[store_pos].freed == true {
@@ -196,7 +203,7 @@ fn spec_alloc(cells: &mut Vec<Cell>, req_data: i32, reference: Option<usize>, st
         //store the data
         cells[store_pos] = Cell {
             data: Some(req_data),
-            reference_count: 1,
+            reference_count: ref_amt,
             freed: false,
             is_root: false,
             will_ref: if reference.is_some() {
@@ -295,14 +302,16 @@ fn view_state(cells: &Vec<Cell>) {
     3. Is root?: {}
     4. Ref amt: {}
     5. Ref Other?: {}
-    6. Ref By?: {}\n",
+    6. Ref By?: {}
+    7. MARKED: {}\n",
             i,                              //Cell position
             cells[i].data.is_some(),        //Does this cell currently store any data?
             cells[i].freed,                 //Is this cell free?
             cells[i].is_root,               //Is this cell a root?
             cells[i].reference_count,       //How many references does this cell have <inclusive>
-            cells[i].will_ref.is_empty(),   //Displays if this cell is referening another cell
-            cells[i].by_ref.is_empty(),     //Displays if this cell is referenced by another cell
+            !cells[i].will_ref.is_empty(),   //Displays if this cell is referening another cell
+            !cells[i].by_ref.is_empty(),     //Displays if this cell is referenced by another cell
+            cells[i].marked,
         );
     }
 }
@@ -411,7 +420,8 @@ fn mark(cells: &mut Vec<Cell>) {
     //The by_ref field will be how we fallback recursively
     //Follow the will_ref until a dead end
 
-    //TODO: When assigning roots, make sure they are MARKED
+    //TODO: Handle Reference BY, if the value is still being referenced by another cell BUT it itself
+    //doesnt reference a cell, it shouldn't be swept. (currently it is)
 
     let mut stack: VecDeque<usize> = VecDeque::new();
 
