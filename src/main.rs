@@ -75,7 +75,7 @@ impl Cell {
     }
 }
 
-//Enum to define error behaviour
+///Enum to define error behaviour
 #[derive(Debug)]
 enum AllocError {
     Occupied,           //Target space is occupied
@@ -155,8 +155,8 @@ macro_rules! malloc {
     };
 }
 
-//Run once at the start during of the program to create a memory pool ->
-//which is essentially just a Vec of Cell, with size n specified when the function is called.
+///Run once at the start during of the program to create a memory pool "The Virtual Heap" ->
+///which is essentially just a Vec of Cell, with size n specified when the function is called.
 fn init_pool(size: usize) -> Vec<Cell> {
     //Create instance of a default cell
     let default_cell = Cell::new();
@@ -167,10 +167,10 @@ fn init_pool(size: usize) -> Vec<Cell> {
     cells //Return cells
 }
 
-//Searches through the cells vec and finds a cell that is not in use, and assigns it the memory that is requested
-//to be stored here. (At this stage, only supports storing i32 primitive values)
-//Return an index that points to the location in memory that the data is stored
-//Takes a mutable reference to the memory pool so it can update and iterate on it.
+///Searches through the cells vec and finds a cell that is not in use, and assigns it the memory that is requested
+///to be stored here. (At this stage, only supports storing `i32` primitive values)
+///Return an index that points to the location in memory that the data is stored.
+///Takes a mutable reference to the memory pool so it can update and iterate on it.
 fn free_alloc(cells: &mut Vec<Cell>, req_data: i32, ref_to: Option<usize>) -> IndexResult {    
     
     //Find first avaliable cell to be used
@@ -198,7 +198,16 @@ fn free_alloc(cells: &mut Vec<Cell>, req_data: i32, ref_to: Option<usize>) -> In
     Err(AllocError::NoFreeMemory) //-> Retern no free memory as an error
 }
 
-//Allocates at a specific memory position
+/// Allocates at a specific memory position.
+/// #### Params
+/// ```
+/// cells: &mut Vec<Cell> //-> a mutable reference to the virtual heap
+/// req_data: i32 //-> requesting data to be store in the pos parsed
+/// reference: Option<usize> //-> Optionally choose a cell that this cell will reference
+/// store_pos: usize //-> what memory cell position will it be stored on?
+/// ```
+/// 
+/// Returns `Occupied` error if you try to write over data that is already stored in memory in the requested position.
 fn spec_alloc(cells: &mut Vec<Cell>, req_data: i32, reference: Option<usize>, store_pos: usize) -> IndexResult {
    
    let mut ref_amt: i32;
@@ -233,15 +242,16 @@ fn spec_alloc(cells: &mut Vec<Cell>, req_data: i32, reference: Option<usize>, st
     Err(AllocError::Occupied) //Return none as the memory position is not free, handle this by freeing pos at call
 }
 
-//frees the data at the pointer index position
-//by deleting the stored information there, and replaces it with a default cell value
+/// Frees the data at the pointer index position
+/// by deleting the stored information there, and replaces it with a default cell value
 fn free(cells: &mut Vec<Cell>, pointer: usize) {
     cells[pointer] = Cell::new(); //Use new impl for cell to create a default cell (default state for a free cell awaiting assignment)
 
     println!("Cell {} was freed, and is now ready for use again", pointer);
 }
 
-//configure 2 cells to root
+/// Sets 2 cells to configure as roots for the Mark and Sweep algorithm.
+/// If invalid cells are parsed, used the default of `0` and `19`
 fn configure_roots(cells: &mut Vec<Cell>, a: usize, b: usize) {
     //error handle
     if a > 19 || b > 19 {
@@ -262,7 +272,7 @@ fn configure_roots(cells: &mut Vec<Cell>, a: usize, b: usize) {
     }
 }
 
-//unroot all cells
+/// Unroots all cells in the virtual memory heap.
 fn unroot(cells: &mut Vec<Cell>) {
     //loop over cells and unroot all
     for i in 0..cells.len() {
@@ -276,7 +286,9 @@ fn unroot(cells: &mut Vec<Cell>) {
     println!();         //Print a blank line at the end of the func
 }
 
-//populate any anymaining cells with data that is not referencing anything (these will be sweeped)
+/// Populates any remaining cells with data that is not referencing anything (these will be sweeped)
+/// I.e. fill each remaining free cell with arbitrary `i32` data that is not being referenced or making references.
+/// This is soley for the purpose of demonstrating that the Mark and Sweep part of the garbage collector works.
 fn populate_remaining(cells: &mut Vec<Cell>) {
     //loop through and populate all free cells
     let mut rng = rand::rng();
@@ -295,7 +307,15 @@ fn populate_remaining(cells: &mut Vec<Cell>) {
     println!();         //Print a blank line at the end of the func
 }
 
-//Function to view the current state of the memory cells
+/// Function to view the current state of the memory cells
+/// #### Output
+/// - Has data? -> `boolean`
+/// - Is free? -> `boolean`
+/// - Is Root? -> `boolean`
+/// - Reference Amount -> `usize`
+/// - Reference to Others -> `Vec<usize>`
+/// - Reference by Others -> `Vec<usize>`
+/// - Marked -> `boolean`
 fn view_state(cells: &Vec<Cell>) {
     //just print each cell
     for i in 0..cells.len() {
@@ -340,7 +360,9 @@ fn show_message(a: Option<usize>, b: Option<String>) {
 }
 
 
-///Function that is used to handle cell viability on creating references, can take n cells to check
+/// Function that is used to handle cell viability on creating references -> i.e are these cells in use? If they are free return error.
+/// Can handle `n` number of cells as `_cells` is a `&Vec<usize>`
+/// Returns `DataIsFree` error if the cell isn't in use. (Can't make a reference to a free cell)
 fn cell_viability(cells: &Vec<Cell>, _cells: &Vec<usize>) -> IndexResult {
 
     //Check if the cells are free (i.e. not in use)
@@ -355,6 +377,12 @@ fn cell_viability(cells: &Vec<Cell>, _cells: &Vec<usize>) -> IndexResult {
     Ok(1)
 }
 
+/// Assigns a reference between two stated cells
+/// #### c1pos will reference c2pos and c2pos will be referenced by c1pos
+/// makes external call to ```cell_viability()``` here to check if parsed cell positions are valid
+/// ```
+/// let result: IndexResult = cell_viability(&cells, &cells_to_check);
+/// ```
 fn assign_reference(cells: &mut Vec<Cell>, c1pos: usize, c2pos: usize) {
 
     //Assign reference between two cells
@@ -537,8 +565,12 @@ fn collect(cells: &mut Vec<Cell>) {
     sweep(cells);
 }
 
-//The program will randomly create references between memory cells with
-//real data
+/// Allocates arbitrary data WITH references to a root that is chosen randomly. This function holds little 'real-world' value to the functionality of
+/// a garbage collector, but it helps populate memory with reference to aid in the demonstration of the functionality. It also populates arbitrary data
+/// into the root cells.
+/// 
+/// #### Uses malloc! macro pattern matching
+/// `malloc!(cells, (data[root] as i32) * (data[root] as i32), Some(roots[root]));` -> will match with arm #1 (first free allocation)
 fn create_free_ref(cells: &mut Vec<Cell>, times_to_run: usize) {
     let mut rng = rand::rng();
 
@@ -607,7 +639,7 @@ fn parse_param_to_usize(param: Option<&&str>, default: usize) -> usize {
     }
 }
 
-//Function for handling allocation from prompt
+///Function for handling allocation from prompt
 //TODO: some tasks to expand here
 fn handle_prompt_allocation(cells: &mut Vec<Cell>, index: usize) {
     let mut rng: ThreadRng = rand::rng();
