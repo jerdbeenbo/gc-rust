@@ -34,7 +34,8 @@ use rand::prelude::*;
 use std::{collections::VecDeque, io::{self}, vec};
 
 //Structures
-//A cell of memory that will be stored in a vector -> making up a greater "memory pool"
+/// #### The 'Virtual Heap' is a collection of these Cell structures.
+/// A cell of memory that will be stored in a vector -> making up a greater "memory pool"
 #[derive(Clone)]
 struct Cell {
     data: Option<i32>, //Actual data within the memory pool...
@@ -47,10 +48,10 @@ struct Cell {
     marked: bool,                   //Flag to signal if the cell has been marked for keeping. Any cell that is not marked will be sweeped
 }
 
-//Implementation for a Cell
+///Implementation for a Cell
 impl Cell {
     //Creates a new cell with default values
-    fn new() -> Cell {
+    fn new() -> Cell {      //called with Cell::new()
         Cell {
             data: None,                 //Cell starts with no data
             reference_count: 0,         //Cell starts with no references
@@ -60,6 +61,17 @@ impl Cell {
             will_ref: Vec::new(),       //References None cell
             marked: false,              //If the cell has been marked for keeping. Any cell that is not marked will be sweeped
         }
+    }
+
+    //Takes parameter &mut self to allow it to be called on cells[n].make_root
+    fn make_root(&mut self) {
+        self.is_root = true;
+        self.marked = true;
+        self.freed = false;
+    }
+
+    fn is_root(&self) -> bool {
+        self.is_root
     }
 }
 
@@ -76,7 +88,7 @@ enum AllocError {
 /// Otherwise, it was unsuccessful -> where we return an Allocation Error specified enum above.
 type IndexResult = Result<usize, AllocError>;
 
-//Macro to abstract away what allocation function to actually use, just pass in parameters and the macro will decide which arm to match
+/// Macro to abstract away what allocation function to actually use, just pass in parameters and the macro will decide which arm to match
 /// Allocates memory in the memory pool with different patterns:
 ///
 /// # Patterns
@@ -236,23 +248,15 @@ fn configure_roots(cells: &mut Vec<Cell>, a: usize, b: usize) {
         //set values to default
         //Unfree them as they'll have values (soon)
         println!("One value was out of bounds, using defaults...");
-        cells[0].is_root = true;
-        cells[0].freed = false;
-        cells[0].marked = true;     //Mark this cell to not be swept, as it is a root.
-        cells[1].is_root = true;
-        cells[1].freed = false;
-        cells[1].marked = true;     //Mark this cell to not be swept, as it is a root.
+        cells[0].make_root();
+        cells[1].make_root();
 
         println!("cells {} and {} are now the roots", 0, 19);
     } else {
         //Assign the cells as roots that were chosen by the user
         //Unfree them as they'll have values (soon)
-        cells[a].is_root = true;
-        cells[a].freed = false;
-        cells[a].marked = true;     //Mark this cell to not be swept, as it is a root.
-        cells[b].is_root = true;
-        cells[b].freed = false;
-        cells[b].marked = true;     //Mark this cell to not be swept, as it is a root.
+        cells[a].make_root();
+        cells[b].make_root();
 
         println!("cells {} and {} are now the roots", a, b);
     }
@@ -493,18 +497,6 @@ fn mark(cells: &mut Vec<Cell>) {
     }
 }   
 
-        // //Loop through all the cells and record their index positions if they are not a root or
-    // //dont reference another cell
-    // let mut r: Vec<usize> = Vec::new();
-    // for i in 0..cells.len() {
-    //     if cells[i].reference_count == 0 && cells[i].is_root == false {
-    //         r.push(i);
-    //     }
-    // }
-
-    // //return a vector of index positions to sweep (free)
-    // r 
-
 /// The sweeping phase of the garbage collector (free any memory cell that isn't referencing anything or is being referenced)
 /// #### Example Cell To Be Swept (Freed)
 /// ```
@@ -636,7 +628,21 @@ fn handle_prompt_allocation(cells: &mut Vec<Cell>, index: usize) {
     }
 }
 
-//Main input loop of the program, listen for commands from the user
+/// Listens for user input
+/// 
+/// #### Accepted commands
+/// ```
+/// "--root" => configure_roots(cells, index1, index2), //Root cells, or default a: 0, b: len-1
+/// "--unroot" => unroot(cells),                        //Unroot all
+/// "--arb_ref" => create_free_ref(cells, index1), //Run as many times as specified
+/// "--gc" => collect(cells), //Run the garbage collector (mark and sweep)
+/// "--state" => view_state(cells),
+/// "--exit" => std::process::exit(0),
+/// "--populate" => populate_remaining(cells),
+/// "--alloc_at" => handle_prompt_allocation(cells, index1),
+/// "--link_ref" => assign_reference(cells, index1, index2),    //Cell 1 references Cell 2
+/// _ => println!("Unknown command. Type 'help' for assistance."), //Default if command doesn't match
+/// ```
 fn listen(listening: bool, cells: &mut Vec<Cell>) {
     while listening {
         //while accepting commands
@@ -676,7 +682,7 @@ fn listen(listening: bool, cells: &mut Vec<Cell>) {
             "--arb_ref" => create_free_ref(cells, index1), //Run as many times as specified
             "--gc" => collect(cells), //Run the garbage collector (mark and sweep)
             "--state" => view_state(cells),
-            "--exit" => println!("Exiting"),
+            "--exit" => std::process::exit(0),
             "--populate" => populate_remaining(cells),
             "--alloc_at" => handle_prompt_allocation(cells, index1),
             "--link_ref" => assign_reference(cells, index1, index2),    //Cell 1 references Cell 2
