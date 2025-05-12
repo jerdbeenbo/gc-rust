@@ -413,6 +413,13 @@ fn mark(cells: &mut Vec<Cell>) {
         }
     }
 
+    //Reset all cells in the heap to be not marked, so we don't get any incorrect sweeping
+    for i in 0..cells.len() {
+        if !cells[i].is_root {
+            cells[i].marked = false;
+        }
+    }
+
     //Traverse the graph (DFS) and mark them with a mark bit flag
     //Left->Right traversal Vertical first horizontal next
     
@@ -452,21 +459,22 @@ fn mark(cells: &mut Vec<Cell>) {
             }
 
             //Start traversing along the stack nodes
-            for i in 0..stack.len() {             //will_ref is a vector of cells that current_pos references
+            while !stack.is_empty() {             //will_ref is a vector of cells that current_pos references
 
-                //Visited this node, pop it from the stack
-                stack.pop_front();
+                //Get front reference
+                let i = stack.front().unwrap(); //Don't need to error handle as this code is not executed if the stack is empty anyway
+
 
                 //This cell is still in use (is still being referenced)
                 //mark as safe to keep
-                cells[stack[i]].marked = true;
+                cells[*i].marked = true;
 
                 //Now check if the cell also has its OWN list of referenced cells
-                if !cells[stack[i]].will_ref.is_empty() {
+                if !cells[*i].will_ref.is_empty() {
                     // This cell has it's own list of references, continue further down the graph
 
                     //move cell position
-                    current_pos = stack[i];
+                    current_pos = *i;
 
                     //Add adjacent nodes into stack
                     for node in 0..cells[current_pos].will_ref.len() {
@@ -475,6 +483,10 @@ fn mark(cells: &mut Vec<Cell>) {
                         stack.push_back(cells[current_pos].will_ref[node]);
                     }
                 }
+
+                //After it is marked, and any other computation is finalised, pop it from the stack
+                //as it is visited, and we don't need to revisit
+                stack.pop_front();
             }
 
         }
